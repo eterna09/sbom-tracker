@@ -2,6 +2,7 @@
 
 ```mermaid
 erDiagram
+```
     organizations ||--o{ memberships : has
     users ||--o{ memberships : has
     organizations ||--o{ api_keys : owns
@@ -121,4 +122,3 @@ erDiagram
         int target_id
         timestamp occurred_at
     }
-    ```
