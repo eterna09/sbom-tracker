@@ -121,4 +121,4 @@ erDiagram
         int target_id
         timestamp occurred_at
     }
-    ```
+```
