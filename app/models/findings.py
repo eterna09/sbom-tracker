@@ -21,17 +21,13 @@ class FindingStatus(enum.StrEnum):
 
 class Finding(Base):
     __tablename__ = "findings"
-    __table_args__ = (
-        UniqueConstraint("product_version_id", "component_id", "vulnerability_id"),
-    )
+    __table_args__ = (UniqueConstraint("product_version_id", "component_id", "vulnerability_id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     product_version_id: Mapped[int] = mapped_column(
         ForeignKey("product_versions.id", ondelete="CASCADE")
     )
-    component_id: Mapped[int] = mapped_column(
-        ForeignKey("components.id", ondelete="CASCADE")
-    )
+    component_id: Mapped[int] = mapped_column(ForeignKey("components.id", ondelete="CASCADE"))
     vulnerability_id: Mapped[int] = mapped_column(
         ForeignKey("vulnerabilities.id", ondelete="CASCADE")
     )
@@ -44,12 +40,8 @@ class Finding(Base):
         server_default=FindingStatus.NEW.value,
     )
     justification: Mapped[str | None] = mapped_column(Text)
-    triaged_by_id: Mapped[int | None] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL")
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    triaged_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -68,9 +60,7 @@ class ReportCase(Base):
     finding_id: Mapped[int] = mapped_column(
         ForeignKey("findings.id", ondelete="CASCADE"), unique=True
     )
-    opened_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     early_warning_due: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     notification_due: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     final_report_due: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

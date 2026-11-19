@@ -18,12 +18,8 @@ class Vulnerability(Base):
     is_known_exploited: Mapped[bool] = mapped_column(server_default=false())
     kev_added_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    aliases: Mapped[list["VulnerabilityAlias"]] = relationship(
-        back_populates="vulnerability"
-    )
-    affected_ranges: Mapped[list["AffectedRange"]] = relationship(
-        back_populates="vulnerability"
-    )
+    aliases: Mapped[list["VulnerabilityAlias"]] = relationship(back_populates="vulnerability")
+    affected_ranges: Mapped[list["AffectedRange"]] = relationship(back_populates="vulnerability")
 
 
 class VulnerabilityAlias(Base):
