@@ -1,11 +1,13 @@
 from datetime import datetime
-
+from typing import TYPE_CHECKING
 from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
 from app.models.identity import Organization
 
+if TYPE_CHECKING:
+    from app.models.components import Component
 
 class Product(Base):
     __tablename__ = "products"
@@ -31,3 +33,4 @@ class ProductVersion(Base):
     sbom_uploaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     product: Mapped[Product] = relationship(back_populates="versions")
+    components: Mapped[list["Component"]] = relationship(secondary="version_components")
