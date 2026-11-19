@@ -1,0 +1,4 @@
+-r requirements.txt
+httpx==<version shown>
+pytest==<version shown>
+ruff==<version shown>
