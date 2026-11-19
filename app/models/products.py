@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
+
 from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -9,14 +10,13 @@ from app.models.identity import Organization
 if TYPE_CHECKING:
     from app.models.components import Component
 
+
 class Product(Base):
     __tablename__ = "products"
     __table_args__ = (UniqueConstraint("organization_id", "name"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    organization_id: Mapped[int] = mapped_column(
-        ForeignKey("organizations.id", ondelete="CASCADE")
-    )
+    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String(200))
 
     organization: Mapped[Organization] = relationship()
