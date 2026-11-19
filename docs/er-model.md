@@ -48,13 +48,13 @@ erDiagram
     products {
         int id PK
         int organization_id FK
-        string name
+        string name "UK with organization_id"
     }
     product_versions {
         int id PK
         int product_id FK "UK with version"
         string version
-        timestamp sbom_uploaded_at
+        timestamp sbom_uploaded_at "null until SBOM uploaded"
     }
     components {
         int id PK
@@ -66,12 +66,13 @@ erDiagram
         int product_version_id PK, FK
         int component_id PK, FK
     }
-    vulnerabilities {
+   vulnerabilities {
         int id PK
         string osv_id UK
-        string summary
-        string severity
-        timestamp published_at
+        string summary "nullable, OSV data incomplete"
+        string severity "nullable"
+        timestamp published_at "nullable"
+        timestamp modified_at "used to skip unchanged records on sync"
         boolean is_known_exploited
         timestamp kev_added_at "null if not in KEV"
     }
@@ -113,7 +114,7 @@ erDiagram
     }
     audit_log {
         int id PK
-        int organization_id FK
+        int organization_id FK "null e.g. for failed login with unknown email"
         int user_id FK "null if done by API key"
         int api_key_id FK "null if done by user"
         string action
