@@ -1,3 +1,4 @@
+from app.models.audit import AuditLog
 from app.models.components import Component
 from app.models.findings import Finding, FindingStatus, ReportCase
 from app.models.identity import ApiKey, Membership, Organization, Role, User
@@ -7,6 +8,7 @@ from app.models.vulnerabilities import AffectedRange, Vulnerability, Vulnerabili
 __all__ = [
     "AffectedRange",
     "ApiKey",
+    "AuditLog",
     "Component",
     "Finding",
     "FindingStatus",
