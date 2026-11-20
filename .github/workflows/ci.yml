@@ -41,6 +41,7 @@ jobs:
       PGPASSWORD: ci-only-password
       DATABASE_URL: postgresql+psycopg://sbom:ci-only-password@localhost:5432/sbom_tracker
       TEST_DATABASE_URL: postgresql+psycopg://sbom:ci-only-password@localhost:5432/sbom_tracker_test
+      JWT_SECRET_KEY: ci-only-secret-key-that-signs-nothing-real-0123456789
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
