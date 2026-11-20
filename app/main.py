@@ -1,8 +1,8 @@
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.responses import RedirectResponse
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
-from fastapi.responses import RedirectResponse
 
 from app.auth.router import router as auth_router
 from app.db import get_session
