@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+from app.matching.names import normalize_package_name
+
 _SEVERITY_LEVELS = {
     "CRITICAL": "critical",
     "HIGH": "high",
@@ -61,6 +63,7 @@ def _affected_ranges(raw: dict[str, Any]) -> Iterator[AffectedRangeData]:
         ecosystem, name = package.get("ecosystem"), package.get("name")
         if not ecosystem or not name:
             continue
+        name = normalize_package_name(ecosystem, name)
         for version_range in affected.get("ranges", []):
             if version_range.get("type") not in _VERSION_RANGE_TYPES:
                 continue
