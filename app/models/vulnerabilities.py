@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint, false
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, UniqueConstraint, false
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -41,6 +41,9 @@ class VulnerabilityAlias(Base):
 
 class AffectedRange(Base):
     __tablename__ = "affected_ranges"
+    __table_args__ = (
+        Index("ix_affected_ranges_ecosystem_package_name", "ecosystem", "package_name"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     vulnerability_id: Mapped[int] = mapped_column(
