@@ -13,47 +13,47 @@ class VersionRange:
 
 def is_affected(ecosystem: str, version: str, version_range: VersionRange) -> bool:
     if ecosystem == "PyPI":
-        try:
-            current = Version(version)
-        except InvalidVersion:
+        current = _parse_pypi(version)
+        if current is None:
             return False
         if version_range.introduced not in (None, "0"):
-            try:
-                if current < Version(version_range.introduced):
-                    return False
-            except InvalidVersion:
+            introduced = _parse_pypi(version_range.introduced)
+            if introduced is None or current < introduced:
                 return False
         if version_range.fixed is not None:
-            try:
-                return current < Version(version_range.fixed)
-            except InvalidVersion:
-                return False
+            fixed = _parse_pypi(version_range.fixed)
+            return fixed is not None and current < fixed
         if version_range.last_affected is not None:
-            try:
-                return current <= Version(version_range.last_affected)
-            except InvalidVersion:
-                return False
+            last_affected = _parse_pypi(version_range.last_affected)
+            return last_affected is not None and current <= last_affected
         return True
     if ecosystem == "npm":
-        try:
-            current = semver.Version.parse(version)
-        except ValueError:
+        current = _parse_npm(version)
+        if current is None:
             return False
         if version_range.introduced not in (None, "0"):
-            try:
-                if current < semver.Version.parse(version_range.introduced):
-                    return False
-            except ValueError:
+            introduced = _parse_npm(version_range.introduced)
+            if introduced is None or current < introduced:
                 return False
         if version_range.fixed is not None:
-            try:
-                return current < semver.Version.parse(version_range.fixed)
-            except ValueError:
-                return False
+            fixed = _parse_npm(version_range.fixed)
+            return fixed is not None and current < fixed
         if version_range.last_affected is not None:
-            try:
-                return current <= semver.Version.parse(version_range.last_affected)
-            except ValueError:
-                return False
+            last_affected = _parse_npm(version_range.last_affected)
+            return last_affected is not None and current <= last_affected
         return True
     return False
+
+
+def _parse_pypi(text: str) -> Version | None:
+    try:
+        return Version(text)
+    except InvalidVersion:
+        return None
+
+
+def _parse_npm(text: str) -> semver.Version | None:
+    try:
+        return semver.Version.parse(text)
+    except ValueError:
+        return None
