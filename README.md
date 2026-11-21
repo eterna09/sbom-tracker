@@ -29,7 +29,7 @@ Manufacturers upload a Software Bill of Materials (SBOM) for each product versio
 | UC2 | Manage products and product versions | **Implemented:** create and list products and versions per organisation (admin creates, any member reads) |
 | UC3 | Upload a CycloneDX SBOM for a product version (CI pipeline, API key) | **Implemented:** `PUT /ci/products/{id}/versions/{version}/sbom` with `X-API-Key`; components read from purls (PyPI, npm, Maven); replaces the version's component list; creates the version if needed; 5 MB limit |
 | UC4 | Sync vulnerability data from OSV and CISA KEV | **Implemented:** OSV import (PyPI) via `python -m app.vulnerabilities.import_osv`, creating, updating or skipping records by `modified_at`; CISA KEV marking via `python -m app.vulnerabilities.mark_kev`, mirroring the current catalogue exactly |
-| UC5 | Match components against affected version ranges, creating findings | Planned (schema implemented) |
+| UC5 | Match components against affected version ranges, creating findings | Implemented|
 | UC6 | Browse findings with filtering, sorting and pagination | Planned |
 | UC7 | Triage findings through defined states (new → investigating → affected / not affected → fixed) | Planned (schema implemented) |
 | UC8 | Track CRA Article 14 deadlines (24 h / 72 h / 14 days) for exploited, affected findings | Planned (schema implemented) |
@@ -37,7 +37,10 @@ Manufacturers upload a Software Bill of Materials (SBOM) for each product versio
 | UC10 | Audit log of security-relevant actions | Planned (schema implemented) |
 
 ---
-
+**When matching runs (UC5):**
+- Automatically after every SBOM upload (`PUT /ci/products/{id}/versions/{version}/sbom`). The response reports `findings_created`.
+- After a vulnerability sync, re-match all versions with an SBOM:
+  `python -m app.matching.rematch`
 ## Architecture
 
 ```mermaid
@@ -105,8 +108,10 @@ flowchart LR
 | Organisations, users, memberships | `python -m app.seed`: deterministic demo data, idempotent, one transaction | 1 organisation, 3 users (one per role) |
 | Vulnerabilities, aliases, affected ranges | OSV.dev PyPI export (`all.zip`), imported with `python -m app.vulnerabilities.import_osv` | 27,069 vulnerabilities, 36,158 aliases, 30,653 affected ranges (local import, Nov 2026). First import 29 s; idempotent re-run 19 s with every record unchanged |
 | Components / SBOMs | Uploaded through the API like a CI pipeline would; SBOMs generated with Syft from real container images | Upload implemented (UC3); bulk import of real SBOMs planned |
-| Findings, report cases | Produced by the application's matching logic | Planned (UC5, UC8) |
+| Findings, report cases | Produced by the application's matching logic: after every SBOM upload, and with `python -m app.matching.rematch` after a sync | Findings implemented (UC5); report cases planned (UC8) |
 | Known exploited vulnerabilities | CISA KEV catalogue (JSON), matched through CVE aliases. ENISA also aggregates CISA KEV into the EUVD; the marking logic only needs "CVE → date added", so the EU KEV catalogue can be added as a second source | 1,790 KEV entries → 47 vulnerabilities marked (Nov 2026), in 1.2 s with three set-based SQL statements |
+**Sync order.** After new vulnerability data arrives, run the three steps in this order, so that matching sees the newest records and KEV marks:
+`python -m app.vulnerabilities.import_osv` → `python -m app.vulnerabilities.mark_kev` → `python -m app.matching.rematch`
 
 Passwords for seeded users are never stored in the code. They come from `DEMO_PASSWORD` in the environment and are stored as Argon2id hashes.
 
@@ -174,3 +179,19 @@ Tests run against a separate test database. Each test runs inside a transaction 
 ## Development workflow
 
 GitHub Flow: short-lived branches, pull requests with green CI, merge commits that keep the individual atomic commits visible, and conventional commit prefixes (`feat`, `fix`, `test`, `refactor`, `docs`, `chore`, `style`, `ci`). New behaviour is specified test-first where practical; the history shows test commits followed by implementation commits.
+
+### Query optimisation: matching lookup
+
+Matching loads all affected ranges for a version's packages with one query:
+`WHERE (ecosystem, package_name) IN (...)`. A composite B-tree index
+`ix_affected_ranges_ecosystem_package_name` serves it (ecosystem first, so
+ecosystem-only queries can use the leftmost prefix).
+
+`EXPLAIN ANALYZE`, 4 packages, ~30,650 ranges (single run, local Docker, PostgreSQL 17):
+
+| | Plan | Rows removed by filter | Execution time |
+|---|---|---|---|
+| Without index | Seq Scan | 29,738 | 11.57 ms |
+| With index | Bitmap Index Scan ×4 → BitmapOr → Bitmap Heap Scan | 0 | 0.81 ms |
+
+Trade-off: the OSV import must also maintain the index on every insert.
