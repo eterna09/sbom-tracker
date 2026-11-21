@@ -5,6 +5,8 @@ import semver
 from packaging.version import InvalidVersion, Version
 
 VersionParser = Callable[[str], Version | semver.Version | None]
+# OSV uses "0" as the introduced version for "affected since the first release".
+_FROM_THE_START = "0"
 
 
 @dataclass(frozen=True)
@@ -15,6 +17,11 @@ class VersionRange:
 
 
 def is_affected(ecosystem: str, version: str, version_range: VersionRange) -> bool:
+    """Return True if `version` lies in `version_range` under the ecosystem's rules.
+
+    Unparsable versions and unsupported ecosystems count as not affected:
+    a deliberate trade-off that avoids false alarms but can miss malformed data.
+    """
     parse = _PARSERS.get(ecosystem)
     if parse is None:
         return False
@@ -27,7 +34,7 @@ def _is_within(
     version_range: VersionRange,
     parse: VersionParser,
 ) -> bool:
-    if version_range.introduced not in (None, "0"):
+    if version_range.introduced not in (None, _FROM_THE_START):
         introduced = parse(version_range.introduced)
         if introduced is None or current < introduced:
             return False
