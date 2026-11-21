@@ -1,9 +1,9 @@
 from datetime import UTC, datetime
 
-from app.matching.rematch import rematch_all
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.matching.rematch import rematch_all
 from app.matching.service import match_product_version
 from app.models import (
     AffectedRange,
