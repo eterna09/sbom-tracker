@@ -1,3 +1,6 @@
+from datetime import UTC, datetime
+
+from app.matching.rematch import rematch_all
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -128,3 +131,14 @@ def test_components_not_yet_flushed_are_matched(session: Session, acme: Organiza
     with session.no_autoflush:
         version.components = [Component(ecosystem="PyPI", name="jinja2", version="2.10.1")]
         assert match_product_version(session, version) == 1
+
+
+def test_rematch_covers_only_versions_with_an_sbom(session: Session, acme: Organization) -> None:
+    session.add(_vulnerability())
+    with_sbom = _product_version(
+        session, acme, [Component(ecosystem="PyPI", name="jinja2", version="2.10.1")]
+    )
+    with_sbom.sbom_uploaded_at = datetime.now(UTC)
+    session.flush()
+
+    assert rematch_all(session) == (1, 1)
