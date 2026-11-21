@@ -1,14 +1,12 @@
 from collections.abc import Iterator
+from functools import lru_cache
 from typing import Annotated
 
 from fastapi import Depends
-from sqlalchemy import MetaData, create_engine
-from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy import Engine, MetaData, create_engine
+from sqlalchemy.orm import DeclarativeBase, Session
 
 from app.config import get_settings
-
-engine = create_engine(get_settings().database_url, pool_pre_ping=True)
-SessionLocal = sessionmaker(bind=engine, autoflush=False)
 
 
 class Base(DeclarativeBase):
@@ -23,8 +21,17 @@ class Base(DeclarativeBase):
     )
 
 
+@lru_cache
+def get_engine() -> Engine:
+    return create_engine(get_settings().database_url, pool_pre_ping=True)
+
+
+def open_session() -> Session:
+    return Session(get_engine(), autoflush=False)
+
+
 def get_session() -> Iterator[Session]:
-    with SessionLocal() as session:
+    with open_session() as session:
         yield session
 
 
