@@ -27,7 +27,7 @@ Manufacturers upload a Software Bill of Materials (SBOM) for each product versio
 |---|---|---|
 | UC1 | Sign in; roles (admin, analyst, viewer) per organisation | **Implemented:** login returns a signed access token; `GET /auth/me`; organisation-scoped role checks (viewer < analyst < admin) |
 | UC2 | Manage products and product versions | **Implemented:** create and list products and versions per organisation (admin creates, any member reads) |
-| UC3 | Upload a CycloneDX SBOM for a product version (CI pipeline, API key) | Planned (schema implemented) |
+| UC3 | Upload a CycloneDX SBOM for a product version (CI pipeline, API key) | **Implemented:** `PUT /ci/products/{id}/versions/{version}/sbom` with `X-API-Key`; components read from purls (PyPI, npm, Maven); replaces the version's component list; creates the version if needed; 5 MB limit |
 | UC4 | Sync vulnerability data from OSV and CISA KEV | Planned (schema implemented) |
 | UC5 | Match components against affected version ranges, creating findings | Planned (schema implemented) |
 | UC6 | Browse findings with filtering, sorting and pagination | Planned |
@@ -43,7 +43,7 @@ Manufacturers upload a Software Bill of Materials (SBOM) for each product versio
 ```mermaid
 flowchart LR
     subgraph Clients
-        CI["Manufacturer CI pipeline<br/>(SBOM upload, API key — planned)"]
+        CI["Manufacturer CI pipeline<br/>(SBOM upload, API key)"]
         Analyst["Security team / Swagger UI<br/>(login, bearer token)"]
     end
 
@@ -104,7 +104,7 @@ flowchart LR
 |---|---|---|
 | Organisations, users, memberships | `python -m app.seed`: deterministic demo data, idempotent, one transaction | 1 organisation, 3 users (one per role) |
 | Vulnerabilities, aliases, affected ranges | OSV.dev export + CISA KEV feed | Planned (UC4) |
-| Components / SBOMs | SBOMs generated with Syft from real container images, uploaded through the API | Planned (UC3) |
+| Components / SBOMs | Uploaded through the API like a CI pipeline would; SBOMs generated with Syft from real container images | Upload implemented (UC3); bulk import of real SBOMs planned |
 | Findings, report cases | Produced by the application's matching logic | Planned (UC5, UC8) |
 
 Passwords for seeded users are never stored in the code. They come from `DEMO_PASSWORD` in the environment and are stored as Argon2id hashes.
