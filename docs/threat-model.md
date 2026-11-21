@@ -67,7 +67,7 @@ flowchart LR
 | Stolen token used indefinitely | Short token lifetime (30 minutes by default) | Implemented |
 | Attacker discovers which emails have accounts (user enumeration) | Identical 401 response for unknown email and wrong password; for unknown emails a dummy Argon2 verification equalises response time | Implemented |
 | Online password brute force | Rate limiting on the login endpoint | Planned |
-| Stolen CI API key used to upload SBOMs | API keys stored only as hashes, scoped to one organisation, revocable (`revoked_at`) | Planned (schema implemented) |
+| Stolen CI API key used to upload SBOMs | API keys stored only as hashes, scoped to one organisation, revocable (`revoked_at`) | Implemented |
 
 ### Tampering (changing data or code)
 
@@ -75,7 +75,7 @@ flowchart LR
 |---|---|---|
 | SQL injection | All queries built with SQLAlchemy (parameterised); no string-built SQL | Implemented |
 | Malformed or malicious input | Request validation via Pydantic / FastAPI; 422 on invalid input | Implemented (login); extended per endpoint |
-| Malicious or oversized SBOM upload | Size limit, schema validation of CycloneDX JSON, upload only via organisation API key | Planned |
+| Malicious or oversized SBOM upload | Size limit, schema validation of CycloneDX JSON, upload only via organisation API key | Partly (size limit via declared Content-Length, CycloneDX schema validation; chunked requests without Content-Length are not limited by the app) |
 | Inconsistent data after partial failures | Transactions: seed and migrations are atomic; PostgreSQL runs schema changes transactionally | Implemented |
 | Duplicate or contradictory records | Unique and foreign key constraints enforced by the database itself | Implemented |
 | Unreviewed code reaching production | Pull requests with CI (lint, security rules, migration round trip, tests) before merge to `main` | Implemented (ruleset configured; not enforced on the free plan for private repos) |
@@ -106,7 +106,7 @@ flowchart LR
 | Threat | Mitigation | Status |
 |---|---|---|
 | Flood of requests / expensive endpoints | Rate limiting; caching of the exposure summary; load tests to find bottlenecks | Planned |
-| Huge uploads exhaust memory | Request size limits on SBOM upload | Planned |
+| Huge uploads exhaust memory | Request size limits on SBOM upload | Partly (see SBOM upload above) |
 | Broken deployment takes the API down | Health check on `/health/ready`: Render only switches to a new version once the app and database are reachable | Implemented |
 | Data loss | Neon continuous point-in-time restore | Implemented (restore test planned) |
 

@@ -11,6 +11,7 @@ This list contains only measures that are **implemented and merged**. Planned me
 | Login via the standard OAuth2 password flow; no custom authentication scheme | `app/auth/router.py` |
 | **No user enumeration:** identical 401 message for unknown email and wrong password | `app/auth/router.py`, `tests/test_login.py` |
 | **Timing-attack protection:** unknown emails still run a dummy Argon2 verification, so response times don't reveal which accounts exist | `app/auth/service.py` |
+| IDOR protection shared by user and CI endpoints: product lookups always go through one function scoped to the caller's organisation | `app/products/queries.py` |
 
 ## Tokens
 
@@ -31,6 +32,17 @@ This list contains only measures that are **implemented and merged**. Planned me
 | Role ladder viewer < analyst < admin; endpoints declare a minimum role (403 if too low) | `app/auth/access.py`, `tests/test_access.py` |
 | Non-members get **404, not 403**, so outsiders cannot tell whether an organisation exists | `app/auth/access.py`, `tests/test_products.py` |
 | **IDOR protection:** objects are always looked up together with the organisation from the URL | `app/products/router.py`, `tests/test_products.py` |
+
+
+## API keys (CI pipelines)
+
+| Measure | Where |
+|---|---|
+| Keys generated with `secrets` (32 random bytes), prefixed `sbom_` so secret scanners can detect leaks | `app/auth/api_keys.py` |
+| Full key shown **once** at creation; only a SHA-256 hash is stored (fast hash is appropriate for high-entropy random keys, unlike passwords) | `app/auth/api_keys.py`, `app/api_keys/router.py` |
+| Keys belong to one organisation, can only be managed by its admins, and are revocable; revocation is idempotent and keys are never deleted (audit trail) | `app/api_keys/router.py`, `tests/test_api_keys.py` |
+| Missing, unknown and revoked keys all receive the same generic 401 | `app/auth/dependencies.py`, `tests/test_sbom_upload.py` |
+
 
 ## Secrets management
 
@@ -72,6 +84,8 @@ This list contains only measures that are **implemented and merged**. Planned me
 | Readiness health check used by the host, so a broken version never receives traffic | `/health/ready`, Render |
 | Input length limits match the database columns (e.g. product name 1–200 characters) | `app/products/router.py` |
 | Duplicates detected by database constraints and returned as 409, with no check-then-insert race condition | `app/products/router.py` |
+| Request size limit of 5 MB, enforced in middleware before the body is read (413) | `app/middleware.py`, `tests/test_sbom_upload.py` |
+| SBOM uploads validated against the CycloneDX structure (other formats → 422); unusable components are skipped and counted instead of failing the upload | `app/sboms/schemas.py`, `app/sboms/service.py` |
 
 ## Secure development life cycle
 

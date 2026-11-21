@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.auth.access import AdminAccess, CurrentAccess
 from app.db import SessionDep
 from app.models import Product, ProductVersion
+from app.products.queries import get_product_in_organization
 
 router = APIRouter(prefix="/organizations/{organization_id}/products", tags=["products"])
 
@@ -30,15 +31,6 @@ class VersionOut(BaseModel):
     id: int
     version: str
     sbom_uploaded_at: datetime | None
-
-
-def _get_product(session: Session, product_id: int, organization_id: int) -> Product:
-    product = session.scalar(
-        select(Product).where(Product.id == product_id, Product.organization_id == organization_id)
-    )
-    if product is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
-    return product
 
 
 def _commit_or_conflict(session: Session, detail: str) -> None:
@@ -70,7 +62,7 @@ def create_product(payload: ProductCreate, access: AdminAccess, session: Session
 
 @router.get("/{product_id}/versions", summary="List a product's versions")
 def list_versions(product_id: int, access: CurrentAccess, session: SessionDep) -> list[VersionOut]:
-    product = _get_product(session, product_id, access.organization.id)
+    product = get_product_in_organization(session, product_id, access.organization.id)
     return [
         VersionOut(
             id=version.id, version=version.version, sbom_uploaded_at=version.sbom_uploaded_at
@@ -87,7 +79,7 @@ def list_versions(product_id: int, access: CurrentAccess, session: SessionDep) -
 def create_version(
     product_id: int, payload: VersionCreate, access: AdminAccess, session: SessionDep
 ) -> VersionOut:
-    product = _get_product(session, product_id, access.organization.id)
+    product = get_product_in_organization(session, product_id, access.organization.id)
     version = ProductVersion(product=product, version=payload.version)
     session.add(version)
     _commit_or_conflict(session, "This version already exists")
