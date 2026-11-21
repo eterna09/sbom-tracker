@@ -93,7 +93,7 @@ flowchart LR
 
 | Threat | Mitigation | Status |
 |---|---|---|
-| One organisation reads another's products or findings | One central access dependency resolves user + organisation + role for every organisation-scoped request | Planned (`get_current_user` drafted, not yet merged) |
+| One organisation reads another's products or findings | One central access dependency resolves user + organisation + role for every organisation-scoped request | Implemented (get_current_access, IDOR test) |
 | Sensitive fields leak in API responses | Explicit Pydantic response models list exactly the fields returned | Implemented (login); applied to every new endpoint |
 | Internal errors reveal details | Database errors mapped to generic responses (e.g. readiness returns "database unavailable"); token errors collapsed into one generic 401 | Implemented |
 | Secrets in the repository | `.env` git-ignored; `.env.example` holds placeholders only; production secrets stored in Render's environment settings; separate secrets per environment | Implemented |
@@ -114,7 +114,7 @@ flowchart LR
 
 | Threat | Mitigation | Status |
 |---|---|---|
-| Viewer performs analyst or admin actions | Role checks per organisation membership, enforced in the central access dependency | Planned |
+| Viewer performs analyst or admin actions | Role checks per organisation membership, enforced in the central access dependency | Implemented |
 | Over-privileged CI pipeline | GitHub Actions workflow runs with `permissions: contents: read` (least privilege) | Implemented |
 | Compromised developer machine pushes to production | Private repository; SSH key with passphrase; production secrets not stored on the developer machine | Implemented |
 
