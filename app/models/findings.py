@@ -1,10 +1,11 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Text, UniqueConstraint, func
+from sqlalchemy import DateTime, ForeignKey, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
+from app.models.columns import value_enum
 from app.models.components import Component
 from app.models.identity import User
 from app.models.products import ProductVersion
@@ -32,11 +33,7 @@ class Finding(Base):
         ForeignKey("vulnerabilities.id", ondelete="CASCADE")
     )
     status: Mapped[FindingStatus] = mapped_column(
-        Enum(
-            FindingStatus,
-            name="finding_status",
-            values_callable=lambda statuses: [s.value for s in statuses],
-        ),
+        value_enum(FindingStatus, "finding_status"),
         server_default=FindingStatus.NEW.value,
     )
     justification: Mapped[str | None] = mapped_column(Text)

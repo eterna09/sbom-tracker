@@ -1,10 +1,11 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, UniqueConstraint, func
+from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
+from app.models.columns import value_enum
 
 
 class Role(enum.StrEnum):
@@ -42,9 +43,7 @@ class Membership(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"))
-    role: Mapped[Role] = mapped_column(
-        Enum(Role, name="role", values_callable=lambda roles: [r.value for r in roles])
-    )
+    role: Mapped[Role] = mapped_column(value_enum(Role, "role"))
 
     user: Mapped[User] = relationship(back_populates="memberships")
     organization: Mapped[Organization] = relationship(back_populates="memberships")
