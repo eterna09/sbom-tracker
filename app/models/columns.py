@@ -1,6 +1,14 @@
 import enum
+from datetime import datetime
 
-from sqlalchemy import Enum
+from sqlalchemy import DateTime, Enum, func
+from sqlalchemy.orm import Mapped, mapped_column
+
+
+class CreatedAtMixin:
+    """Adds a `created_at` timestamp that the database fills in on insert."""
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 def value_enum(enum_class: type[enum.Enum], name: str) -> Enum:
