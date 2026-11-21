@@ -28,7 +28,7 @@ Manufacturers upload a Software Bill of Materials (SBOM) for each product versio
 | UC1 | Sign in; roles (admin, analyst, viewer) per organisation | **Implemented:** login returns a signed access token; `GET /auth/me`; organisation-scoped role checks (viewer < analyst < admin) |
 | UC2 | Manage products and product versions | **Implemented:** create and list products and versions per organisation (admin creates, any member reads) |
 | UC3 | Upload a CycloneDX SBOM for a product version (CI pipeline, API key) | **Implemented:** `PUT /ci/products/{id}/versions/{version}/sbom` with `X-API-Key`; components read from purls (PyPI, npm, Maven); replaces the version's component list; creates the version if needed; 5 MB limit |
-| UC4 | Sync vulnerability data from OSV and CISA KEV | Planned (schema implemented) |
+| UC4 | Sync vulnerability data from OSV and CISA KEV | **Partly implemented:** OSV import (PyPI) via `python -m app.vulnerabilities.import_osv <export.zip>`, creating, updating or skipping records by `modified_at`, in batched transactions; CISA KEV marking planned |
 | UC5 | Match components against affected version ranges, creating findings | Planned (schema implemented) |
 | UC6 | Browse findings with filtering, sorting and pagination | Planned |
 | UC7 | Triage findings through defined states (new → investigating → affected / not affected → fixed) | Planned (schema implemented) |
@@ -103,7 +103,7 @@ flowchart LR
 | Data | Source | Amount (current) |
 |---|---|---|
 | Organisations, users, memberships | `python -m app.seed`: deterministic demo data, idempotent, one transaction | 1 organisation, 3 users (one per role) |
-| Vulnerabilities, aliases, affected ranges | OSV.dev export + CISA KEV feed | Planned (UC4) |
+| Vulnerabilities, aliases, affected ranges | OSV.dev PyPI export (`all.zip`), imported with `python -m app.vulnerabilities.import_osv` | 27,069 vulnerabilities, 36,158 aliases, 30,653 affected ranges (local import, Nov 2026). First import 29 s; idempotent re-run 19 s with every record unchanged |
 | Components / SBOMs | Uploaded through the API like a CI pipeline would; SBOMs generated with Syft from real container images | Upload implemented (UC3); bulk import of real SBOMs planned |
 | Findings, report cases | Produced by the application's matching logic | Planned (UC5, UC8) |
 
