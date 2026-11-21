@@ -4,12 +4,14 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.api_keys.router import router as api_keys_router
 from app.auth.router import router as auth_router
 from app.db import get_session
 from app.products.router import router as products_router
 
 app = FastAPI(title="SBOM Tracker")
 app.include_router(auth_router)
+app.include_router(api_keys_router)
 app.include_router(products_router)
 
 

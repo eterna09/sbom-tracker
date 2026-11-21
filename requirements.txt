@@ -31,3 +31,4 @@ cffi==2.1.1
 pycparser==3.12
 PyJWT==2.15.1
 python-multipart==0.0.34
+packageurl-python==0.17.6

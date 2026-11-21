@@ -1,35 +1,7 @@
-import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
-from app.models import Organization, Role, User
-from tests.helpers import add_member, bearer_header
-
-
-@pytest.fixture
-def acme(session: Session) -> Organization:
-    organization = Organization(name="Acme Machines")
-    session.add(organization)
-    session.flush()
-    return organization
-
-
-@pytest.fixture
-def admin(session: Session, acme: Organization) -> User:
-    return add_member(session, acme, "admin@acme.example", Role.ADMIN)
-
-
-@pytest.fixture
-def viewer(session: Session, acme: Organization) -> User:
-    return add_member(session, acme, "viewer@acme.example", Role.VIEWER)
-
-
-@pytest.fixture
-def outsider(session: Session) -> User:
-    globex = Organization(name="Globex")
-    session.add(globex)
-    session.flush()
-    return add_member(session, globex, "admin@globex.example", Role.ADMIN)
+from app.models import Organization, User
+from tests.helpers import bearer_header
 
 
 def products_url(organization_id: int) -> str:
