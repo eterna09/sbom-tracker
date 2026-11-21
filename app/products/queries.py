@@ -6,7 +6,7 @@ from app.models import Product
 
 
 def get_product_in_organization(session: Session, product_id: int, organization_id: int) -> Product:
-    """Return the product only if it belongs to the organisation; otherwise 404 (IDOR protection)."""
+    """Return the organisation's product, or raise 404 (IDOR protection)."""
     product = session.scalar(
         select(Product).where(Product.id == product_id, Product.organization_id == organization_id)
     )
