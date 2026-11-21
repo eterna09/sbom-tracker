@@ -1,13 +1,10 @@
-from datetime import timedelta
-
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.auth.passwords import hash_password
-from app.auth.tokens import create_access_token
-from app.config import get_settings
 from app.models import Membership, Organization, Role, User
+from tests.helpers import bearer_header
 
 
 @pytest.fixture
@@ -17,11 +14,6 @@ def analyst(session: Session) -> User:
     session.add(Membership(user=user, organization=organization, role=Role.ANALYST))
     session.flush()
     return user
-
-
-def bearer_header(user_id: int) -> dict[str, str]:
-    token = create_access_token(user_id, get_settings().jwt_secret_key, timedelta(minutes=5))
-    return {"Authorization": f"Bearer {token}"}
 
 
 def test_me_returns_the_calling_user_with_memberships(client: TestClient, analyst: User) -> None:
