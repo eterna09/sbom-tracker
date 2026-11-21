@@ -96,3 +96,23 @@ def test_git_commit_ranges_are_ignored() -> None:
     record = parse_osv_record(raw)
 
     assert record.affected_ranges == ()
+
+
+def test_pypi_package_names_are_stored_normalised() -> None:
+    record = parse_osv_record(
+        osv_record(
+            affected=[
+                {
+                    "package": {"ecosystem": "PyPI", "name": "Jinja2"},
+                    "ranges": [
+                        {
+                            "type": "ECOSYSTEM",
+                            "events": [{"introduced": "0"}, {"fixed": "2.11.3"}],
+                        }
+                    ],
+                }
+            ]
+        )
+    )
+
+    assert record.affected_ranges[0].package_name == "jinja2"
