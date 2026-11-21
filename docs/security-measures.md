@@ -23,6 +23,15 @@ This list contains only measures that are **implemented and merged**. Planned me
 | Forged, expired, unsigned and malformed tokens all raise one internal error, so no detail leaks about which check failed | `app/auth/tokens.py`, `tests/test_tokens.py` |
 | Signing key generated with Python's `secrets` module (cryptographically secure), 64 bytes | deployment procedure |
 
+## Authorization
+
+| Measure | Where |
+|---|---|
+| One central dependency resolves user + organisation + role for every organisation-scoped request; endpoints never check memberships themselves | `app/auth/access.py` |
+| Role ladder viewer < analyst < admin; endpoints declare a minimum role (403 if too low) | `app/auth/access.py`, `tests/test_access.py` |
+| Non-members get **404, not 403**, so outsiders cannot tell whether an organisation exists | `app/auth/access.py`, `tests/test_products.py` |
+| **IDOR protection:** objects are always looked up together with the organisation from the URL | `app/products/router.py`, `tests/test_products.py` |
+
 ## Secrets management
 
 | Measure | Where |
@@ -61,6 +70,8 @@ This list contains only measures that are **implemented and merged**. Planned me
 | Explicit response models: only listed fields are returned | `app/auth/router.py` |
 | Internal errors not exposed: database failures return a generic 503 | `app/main.py` |
 | Readiness health check used by the host, so a broken version never receives traffic | `/health/ready`, Render |
+| Input length limits match the database columns (e.g. product name 1–200 characters) | `app/products/router.py` |
+| Duplicates detected by database constraints and returned as 409, with no check-then-insert race condition | `app/products/router.py` |
 
 ## Secure development life cycle
 

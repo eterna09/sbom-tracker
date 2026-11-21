@@ -25,8 +25,8 @@ Manufacturers upload a Software Bill of Materials (SBOM) for each product versio
 
 | # | Use case | Status |
 |---|---|---|
-| UC1 | Sign in; roles (admin, analyst, viewer) per organisation | **Partly implemented:** login with email + password returns a signed access token. Organisation-scoped role checks: planned |
-| UC2 | Manage products and product versions | Planned (schema implemented) |
+| UC1 | Sign in; roles (admin, analyst, viewer) per organisation | **Implemented:** login returns a signed access token; `GET /auth/me`; organisation-scoped role checks (viewer < analyst < admin) |
+| UC2 | Manage products and product versions | **Implemented:** create and list products and versions per organisation (admin creates, any member reads) |
 | UC3 | Upload a CycloneDX SBOM for a product version (CI pipeline, API key) | Planned (schema implemented) |
 | UC4 | Sync vulnerability data from OSV and CISA KEV | Planned (schema implemented) |
 | UC5 | Match components against affected version ranges, creating findings | Planned (schema implemented) |
