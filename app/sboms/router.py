@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.dependencies import CurrentApiKey
 from app.db import SessionDep
+from app.matching.service import match_product_version
 from app.models import Product, ProductVersion
 from app.products.queries import get_product_in_organization
 from app.sboms.schemas import CycloneDxBom
@@ -22,6 +23,7 @@ class SbomUploadOut(BaseModel):
     version: str
     components_stored: int
     components_skipped: int
+    findings_created: int
 
 
 def _get_or_create_version(session: Session, product: Product, name: str) -> ProductVersion:
@@ -50,10 +52,12 @@ def upload_sbom(
     product = get_product_in_organization(session, product_id, api_key.organization_id)
     product_version = _get_or_create_version(session, product, version)
     result = store_sbom(session, product_version, bom)
+    findings_created = match_product_version(session, product_version)
     session.commit()
     return SbomUploadOut(
         product_id=product.id,
         version=version,
         components_stored=result.components_stored,
         components_skipped=result.components_skipped,
+        findings_created=findings_created,
     )

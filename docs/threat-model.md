@@ -82,6 +82,10 @@ flowchart LR
 | Compromised dependency | Pinned versions; provenance checked before adding packages; automated dependency scanning | Partly (scanning planned) |
 | Tampered vulnerability feed data | Fetch over HTTPS from official sources; validate structure before import | Planned |
 
+- **Unparsable versions are treated as not affected.** Avoids false alarms from malformed
+  SBOM or OSV data, but a malformed version string can hide a real vulnerability
+  (false negative). Mitigation planned: count and report skipped evaluations.
+
 ### Repudiation (denying an action)
 
 | Threat | Mitigation | Status |

@@ -7,7 +7,17 @@ from sqlalchemy.orm import Session
 
 from app.auth.api_keys import generate_api_key, hash_api_key
 from app.middleware import MAX_REQUEST_BYTES
-from app.models import ApiKey, Component, Organization, Product, ProductVersion, User
+from app.models import (
+    AffectedRange,
+    ApiKey,
+    Component,
+    Finding,
+    Organization,
+    Product,
+    ProductVersion,
+    User,
+    Vulnerability,
+)
 
 
 @pytest.fixture
@@ -75,6 +85,7 @@ def test_upload_stores_components_for_the_version(
         "version": "2.1.0",
         "components_stored": 2,
         "components_skipped": 0,
+        "findings_created": 0,
     }
     assert stored_component_names(session, pump_controller.id, "2.1.0") == {"jinja2", "lodash"}
 
@@ -205,3 +216,34 @@ def test_oversized_upload_is_rejected_before_processing(
     )
 
     assert response.status_code == 413
+
+
+def test_upload_creates_findings_for_affected_components(
+    client: TestClient, session: Session, pump_controller: Product, ci_key: str
+) -> None:
+    session.add(
+        Vulnerability(
+            osv_id="GHSA-h5c8-rqwp-cp95",
+            affected_ranges=[
+                AffectedRange(
+                    ecosystem="PyPI",
+                    package_name="jinja2",
+                    introduced="0",
+                    fixed="2.11.3",
+                    last_affected=None,
+                )
+            ],
+        )
+    )
+    session.flush()
+
+    response = client.put(
+        upload_url(pump_controller.id),
+        json=cyclonedx("pkg:pypi/jinja2@2.10.1"),
+        headers={"X-API-Key": ci_key},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["findings_created"] == 1
+    session.expire_all()
+    assert session.scalar(select(func.count()).select_from(Finding)) == 1
