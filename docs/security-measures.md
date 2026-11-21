@@ -100,3 +100,4 @@ This list contains only measures that are **implemented and merged**. Planned me
 | Branch ruleset for `main`: PR required, CI checks required, force pushes and deletion blocked (configured; not enforced on the free plan for private repos, so the workflow is followed manually) | GitHub settings |
 | GitHub access via SSH key with passphrase | developer setup |
 | Private repository; assessors invited individually | GitHub settings |
+| The project's own dependencies were checked against CISA KEV with the tool itself (CVE-2026-48710 in Starlette: fixed in 1.0.1, installed 1.10.0, not affected) | `data/kev.json`, `affected_ranges` |
