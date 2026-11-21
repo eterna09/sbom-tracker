@@ -6,9 +6,11 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.api_keys.router import router as api_keys_router
 from app.auth.router import router as auth_router
 from app.db import SessionDep
+from app.middleware import limit_request_size
 from app.products.router import router as products_router
 
 app = FastAPI(title="SBOM Tracker")
+app.middleware("http")(limit_request_size)
 app.include_router(auth_router)
 app.include_router(products_router)
 app.include_router(api_keys_router)
