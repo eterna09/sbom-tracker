@@ -17,3 +17,24 @@ def add_member(session: Session, organization: Organization, email: str, role: R
     session.add(Membership(user=user, organization=organization, role=role))
     session.flush()
     return user
+
+
+def osv_record(**overrides: object) -> dict:
+    record = {
+        "id": "GHSA-h5c8-rqwp-cp95",
+        "modified": "2024-05-06T14:46:41Z",
+        "published": "2024-01-11T15:20:48Z",
+        "aliases": ["CVE-2024-22195"],
+        "summary": "Jinja vulnerable to HTML attribute injection via the xmlattr filter",
+        "affected": [
+            {
+                "package": {"ecosystem": "PyPI", "name": "jinja2"},
+                "ranges": [
+                    {"type": "ECOSYSTEM", "events": [{"introduced": "0"}, {"fixed": "3.1.3"}]}
+                ],
+            }
+        ],
+        "database_specific": {"severity": "MODERATE"},
+    }
+    record.update(overrides)
+    return record
