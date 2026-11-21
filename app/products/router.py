@@ -41,6 +41,14 @@ def _get_product(session: Session, product_id: int, organization_id: int) -> Pro
     return product
 
 
+def _commit_or_conflict(session: Session, detail: str) -> None:
+    try:
+        session.commit()
+    except IntegrityError as error:
+        session.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail) from error
+
+
 @router.get("", summary="List the organisation's products")
 def list_products(access: CurrentAccess, session: SessionDep) -> list[ProductOut]:
     products = session.scalars(
@@ -55,13 +63,8 @@ def list_products(access: CurrentAccess, session: SessionDep) -> list[ProductOut
 def create_product(payload: ProductCreate, access: AdminAccess, session: SessionDep) -> ProductOut:
     product = Product(organization_id=access.organization.id, name=payload.name)
     session.add(product)
-    try:
-        session.commit()
-    except IntegrityError as error:
-        session.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="A product with this name already exists"
-        ) from error
+
+    _commit_or_conflict(session, "A product with this name already exists")
     return ProductOut(id=product.id, name=product.name)
 
 
@@ -87,11 +90,5 @@ def create_version(
     product = _get_product(session, product_id, access.organization.id)
     version = ProductVersion(product=product, version=payload.version)
     session.add(version)
-    try:
-        session.commit()
-    except IntegrityError as error:
-        session.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="This version already exists"
-        ) from error
+    _commit_or_conflict(session, "This version already exists")
     return VersionOut(id=version.id, version=version.version, sbom_uploaded_at=None)

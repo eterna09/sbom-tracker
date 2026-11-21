@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth.passwords import hash_password
-from app.db import SessionLocal
+from app.db import open_session
 from app.models import Membership, Organization, Role, User
 
 DEMO_ORGANIZATION_NAME = "Acme Machines"
@@ -63,7 +63,7 @@ def seed_demo_data(session: Session, password: str) -> None:
 
 def main() -> None:
     password = SeedSettings().demo_password
-    with SessionLocal() as session, session.begin():
+    with open_session() as session, session.begin():
         seed_demo_data(session, password)
     print(f"Seeded '{DEMO_ORGANIZATION_NAME}' with {len(DEMO_MEMBERS)} members.")
 
