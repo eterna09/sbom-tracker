@@ -17,6 +17,7 @@ def match_product_version(session: Session, product_version: ProductVersion) -> 
     Existing findings are left untouched, so triage decisions survive re-matching.
     Returns the number of new findings. The caller commits.
     """
+    session.flush()  # new components need database ids before findings can reference them
     components = _components_by_package(product_version.components)
     if not components:
         return 0
