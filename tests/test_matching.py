@@ -119,3 +119,12 @@ def test_version_without_components_gets_no_findings(session: Session, acme: Org
     version = _product_version(session, acme, [])
 
     assert match_product_version(session, version) == 0
+
+
+def test_components_not_yet_flushed_are_matched(session: Session, acme: Organization) -> None:
+    session.add(_vulnerability())
+    version = _product_version(session, acme, [])
+
+    with session.no_autoflush:
+        version.components = [Component(ecosystem="PyPI", name="jinja2", version="2.10.1")]
+        assert match_product_version(session, version) == 1
