@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session, sessionmaker
 import app.models  # noqa: F401  registers all models on Base.metadata
 from app.db import Base, get_session
 from app.main import app
+from app.models import Organization, Role, User
+from tests.helpers import add_member
 
 
 class TestSettings(BaseSettings):
@@ -42,3 +44,29 @@ def client(session: Session) -> Iterator[TestClient]:
     app.dependency_overrides[get_session] = lambda: session
     yield TestClient(app)
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def acme(session: Session) -> Organization:
+    organization = Organization(name="Acme Machines")
+    session.add(organization)
+    session.flush()
+    return organization
+
+
+@pytest.fixture
+def admin(session: Session, acme: Organization) -> User:
+    return add_member(session, acme, "admin@acme.example", Role.ADMIN)
+
+
+@pytest.fixture
+def viewer(session: Session, acme: Organization) -> User:
+    return add_member(session, acme, "viewer@acme.example", Role.VIEWER)
+
+
+@pytest.fixture
+def outsider(session: Session) -> User:
+    globex = Organization(name="Globex")
+    session.add(globex)
+    session.flush()
+    return add_member(session, globex, "admin@globex.example", Role.ADMIN)
