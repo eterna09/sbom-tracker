@@ -28,7 +28,7 @@ Manufacturers upload a Software Bill of Materials (SBOM) for each product versio
 | UC1 | Sign in; roles (admin, analyst, viewer) per organisation | **Implemented:** login returns a signed access token; `GET /auth/me`; organisation-scoped role checks (viewer < analyst < admin) |
 | UC2 | Manage products and product versions | **Implemented:** create and list products and versions per organisation (admin creates, any member reads) |
 | UC3 | Upload a CycloneDX SBOM for a product version (CI pipeline, API key) | **Implemented:** `PUT /ci/products/{id}/versions/{version}/sbom` with `X-API-Key`; components read from purls (PyPI, npm, Maven); replaces the version's component list; creates the version if needed; 5 MB limit |
-| UC4 | Sync vulnerability data from OSV and CISA KEV | **Partly implemented:** OSV import (PyPI) via `python -m app.vulnerabilities.import_osv <export.zip>`, creating, updating or skipping records by `modified_at`, in batched transactions; CISA KEV marking planned |
+| UC4 | Sync vulnerability data from OSV and CISA KEV | **Implemented:** OSV import (PyPI) via `python -m app.vulnerabilities.import_osv`, creating, updating or skipping records by `modified_at`; CISA KEV marking via `python -m app.vulnerabilities.mark_kev`, mirroring the current catalogue exactly |
 | UC5 | Match components against affected version ranges, creating findings | Planned (schema implemented) |
 | UC6 | Browse findings with filtering, sorting and pagination | Planned |
 | UC7 | Triage findings through defined states (new → investigating → affected / not affected → fixed) | Planned (schema implemented) |
@@ -106,6 +106,7 @@ flowchart LR
 | Vulnerabilities, aliases, affected ranges | OSV.dev PyPI export (`all.zip`), imported with `python -m app.vulnerabilities.import_osv` | 27,069 vulnerabilities, 36,158 aliases, 30,653 affected ranges (local import, Nov 2026). First import 29 s; idempotent re-run 19 s with every record unchanged |
 | Components / SBOMs | Uploaded through the API like a CI pipeline would; SBOMs generated with Syft from real container images | Upload implemented (UC3); bulk import of real SBOMs planned |
 | Findings, report cases | Produced by the application's matching logic | Planned (UC5, UC8) |
+| Known exploited vulnerabilities | CISA KEV catalogue (JSON), matched through CVE aliases. ENISA also aggregates CISA KEV into the EUVD; the marking logic only needs "CVE → date added", so the EU KEV catalogue can be added as a second source | 1,790 KEV entries → 47 vulnerabilities marked (Nov 2026), in 1.2 s with three set-based SQL statements |
 
 Passwords for seeded users are never stored in the code. They come from `DEMO_PASSWORD` in the environment and are stored as Argon2id hashes.
 
