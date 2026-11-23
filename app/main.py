@@ -6,6 +6,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.api_keys.router import router as api_keys_router
 from app.auth.router import router as auth_router
 from app.db import SessionDep
+from app.findings.router import router as findings_router
 from app.middleware import limit_request_size
 from app.products.router import router as products_router
 from app.sboms.router import router as sboms_router
@@ -16,6 +17,7 @@ app.include_router(auth_router)
 app.include_router(products_router)
 app.include_router(api_keys_router)
 app.include_router(sboms_router)
+app.include_router(findings_router)
 
 
 @app.get("/", include_in_schema=False)
