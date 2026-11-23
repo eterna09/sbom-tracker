@@ -55,5 +55,5 @@ def list_findings(
         )
         .limit(page.limit)
         .offset(page.offset)
-    ).tuples()
+    ).all()
     return FindingPage(rows=list(rows), total=total)
