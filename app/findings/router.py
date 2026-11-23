@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from app.auth.access import CurrentAccess
 from app.db import SessionDep
-from app.findings.queries import FindingRow, list_findings
+from app.findings.queries import FindingFilters, FindingRow, PageRequest, list_findings
 from app.models import FindingStatus
 
 router = APIRouter(prefix="/organizations/{organization_id}/findings", tags=["findings"])
@@ -62,12 +62,15 @@ def get_findings(
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> FindingPageOut:
-    page = list_findings(
-        session, access.organization.id, status, product_id, known_exploited, limit, offset
+    findings = list_findings(
+        session,
+        access.organization.id,
+        FindingFilters(status=status, product_id=product_id, known_exploited=known_exploited),
+        PageRequest(limit=limit, offset=offset),
     )
     return FindingPageOut(
-        items=[_to_out(row) for row in page.rows],
-        total=page.total,
+        items=[_to_out(row) for row in findings.rows],
+        total=findings.total,
         limit=limit,
         offset=offset,
     )

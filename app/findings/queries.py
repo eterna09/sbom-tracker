@@ -9,19 +9,28 @@ FindingRow = tuple[Finding, ProductVersion, Product, Component, Vulnerability]
 
 
 @dataclass(frozen=True)
+class FindingFilters:
+    """Optional filters for the findings list; None means "don't filter on this"."""
+
+    status: FindingStatus | None = None
+    product_id: int | None = None
+    known_exploited: bool | None = None
+
+
+@dataclass(frozen=True)
+class PageRequest:
+    limit: int
+    offset: int
+
+
+@dataclass(frozen=True)
 class FindingPage:
     rows: list[FindingRow]
     total: int
 
 
 def list_findings(
-    session: Session,
-    organization_id: int,
-    status: FindingStatus | None,
-    product_id: int | None,
-    known_exploited: bool | None,
-    limit: int,
-    offset: int,
+    session: Session, organization_id: int, filters: FindingFilters, page: PageRequest
 ) -> FindingPage:
     query = (
         select(Finding, ProductVersion, Product, Component, Vulnerability)
@@ -31,12 +40,12 @@ def list_findings(
         .join(Vulnerability, Finding.vulnerability_id == Vulnerability.id)
         .where(Product.organization_id == organization_id)
     )
-    if status is not None:
-        query = query.where(Finding.status == status)
-    if product_id is not None:
-        query = query.where(Product.id == product_id)
-    if known_exploited is not None:
-        query = query.where(Vulnerability.is_known_exploited == known_exploited)
+    if filters.status is not None:
+        query = query.where(Finding.status == filters.status)
+    if filters.product_id is not None:
+        query = query.where(Product.id == filters.product_id)
+    if filters.known_exploited is not None:
+        query = query.where(Vulnerability.is_known_exploited == filters.known_exploited)
     total = session.scalar(query.with_only_columns(func.count(Finding.id))) or 0
     rows = session.execute(
         query.order_by(
@@ -44,7 +53,7 @@ def list_findings(
             Finding.created_at.desc(),
             Finding.id.desc(),
         )
-        .limit(limit)
-        .offset(offset)
+        .limit(page.limit)
+        .offset(page.offset)
     ).tuples()
     return FindingPage(rows=list(rows), total=total)
