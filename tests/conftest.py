@@ -1,6 +1,7 @@
 from collections.abc import Iterator
 
 import pytest
+from app.auth.rate_limit import reset_login_attempts
 from fastapi.testclient import TestClient
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import create_engine
@@ -70,3 +71,9 @@ def outsider(session: Session) -> User:
     session.add(globex)
     session.flush()
     return add_member(session, globex, "admin@globex.example", Role.ADMIN)
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limits() -> Iterator[None]:
+    reset_login_attempts()
+    yield
