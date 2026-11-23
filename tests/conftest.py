@@ -1,13 +1,13 @@
 from collections.abc import Iterator
 
 import pytest
-from app.auth.rate_limit import reset_login_attempts
 from fastapi.testclient import TestClient
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 import app.models  # noqa: F401  registers all models on Base.metadata
+from app.auth.rate_limit import reset_login_attempts
 from app.db import Base, get_session
 from app.main import app
 from app.models import Organization, Role, User
