@@ -7,6 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 import app.models  # noqa: F401  registers all models on Base.metadata
+from app.auth.rate_limit import reset_login_attempts
 from app.db import Base, get_session
 from app.main import app
 from app.models import Organization, Role, User
@@ -70,3 +71,9 @@ def outsider(session: Session) -> User:
     session.add(globex)
     session.flush()
     return add_member(session, globex, "admin@globex.example", Role.ADMIN)
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limits() -> Iterator[None]:
+    reset_login_attempts()
+    yield

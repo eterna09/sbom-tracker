@@ -51,3 +51,28 @@ def test_login_without_credentials_is_a_validation_error(client: TestClient) -> 
     response = client.post("/auth/token", data={})
 
     assert response.status_code == 422
+
+
+def test_sixth_attempt_on_one_account_within_a_minute_is_rejected(client: TestClient) -> None:
+    form = {"username": "admin@acme.example", "password": "wrong-password"}
+    for _ in range(5):
+        assert client.post("/auth/token", data=form).status_code == 401
+
+    response = client.post("/auth/token", data=form)
+
+    assert response.status_code == 429
+    assert response.headers["Retry-After"] == "60"
+
+
+def test_eleventh_attempt_from_one_client_within_a_minute_is_rejected(
+    client: TestClient,
+) -> None:
+    for number in range(10):
+        form = {"username": f"user{number}@acme.example", "password": "wrong-password"}
+        assert client.post("/auth/token", data=form).status_code == 401
+
+    response = client.post(
+        "/auth/token", data={"username": "other@acme.example", "password": "wrong-password"}
+    )
+
+    assert response.status_code == 429

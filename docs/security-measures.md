@@ -11,7 +11,9 @@ This list contains only measures that are **implemented and merged**. Planned me
 | Login via the standard OAuth2 password flow; no custom authentication scheme | `app/auth/router.py` |
 | **No user enumeration:** identical 401 message for unknown email and wrong password | `app/auth/router.py`, `tests/test_login.py` |
 | **Timing-attack protection:** unknown emails still run a dummy Argon2 verification, so response times don't reveal which accounts exist | `app/auth/service.py` |
+| **Login rate limiting** (`limits` library, moving window): 10 attempts per minute per client IP and 5 per minute per account; excess attempts get 429 with `Retry-After`. Checked before the password hash, so blocked attempts cost no CPU | `app/auth/rate_limit.py`, `tests/test_login.py` |
 | IDOR protection shared by user and CI endpoints: product lookups always go through one function scoped to the caller's organisation | `app/products/queries.py` |
+
 
 ## Tokens
 
@@ -92,11 +94,13 @@ This list contains only measures that are **implemented and merged**. Planned me
 | Measure | Where |
 |---|---|
 | CI on every pull request: lint, formatting, **security lint rules (Bandit rules via Ruff `S`)**, migration round trip, tests | `.github/workflows/ci.yml`, `pyproject.toml` |
+| **Dependency vulnerability scan in CI:** `pip-audit` checks every pinned package against the OSV database; a known-vulnerable version fails the build | `.github/workflows/ci.yml` |
+| **Dependabot** proposes updates for pip packages and GitHub Actions weekly; dependency graph and Dependabot alerts enabled | `.github/dependabot.yml`, GitHub settings |
 | Security lint findings reviewed individually; the one false positive (OAuth2 token type `"bearer"`) is suppressed on that line only, with a documented reason | `app/auth/router.py` |
 | CI workflow runs with **least privilege** (`permissions: contents: read`) | `.github/workflows/ci.yml` |
 | Pinned dependency versions; development tools kept out of the production requirements | `requirements.txt`, `requirements-dev.txt` |
-| Package provenance checked before adding a new dependency (`httpx2`) | PR history |
-| Test-first development for security-relevant code (passwords, tokens, login) | git history |
+| Package provenance checked before adding a new dependency (`httpx2`, `limits`) | PR history |
+| Test-first development for security-relevant code (passwords, tokens, login, rate limiting) | git history |
 | Branch ruleset for `main`: PR required, CI checks required, force pushes and deletion blocked (configured; not enforced on the free plan for private repos, so the workflow is followed manually) | GitHub settings |
 | GitHub access via SSH key with passphrase | developer setup |
 | Private repository; assessors invited individually | GitHub settings |

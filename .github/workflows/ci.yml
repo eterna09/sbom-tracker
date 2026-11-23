@@ -49,6 +49,8 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements-dev.txt
+      - name: Audit dependencies for known vulnerabilities
+        run: pip-audit -r requirements.txt
       - name: Create test database
         run: createdb -h localhost -U sbom sbom_tracker_test
       - name: Migration round trip
