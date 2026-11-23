@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import CurrentUser
+from app.auth.rate_limit import limit_login_attempts
 from app.auth.service import authenticate_user
 from app.auth.tokens import create_access_token
 from app.config import Settings, get_settings
@@ -33,7 +34,11 @@ class MeResponse(BaseModel):
     memberships: list[MembershipOut]
 
 
-@router.post("/token", summary="Log in and receive an access token")
+@router.post(
+    "/token",
+    summary="Log in and receive an access token",
+    dependencies=[Depends(limit_login_attempts)],
+)
 def login(
     form: Annotated[OAuth2PasswordRequestForm, Depends()],
     session: Annotated[Session, Depends(get_session)],
