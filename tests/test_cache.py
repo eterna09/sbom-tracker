@@ -2,8 +2,9 @@ from collections.abc import Iterator
 
 import pytest
 import redis
-from app.cache import NullCache, RedisCache
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.cache import NullCache, RedisCache
 
 
 class CacheTestSettings(BaseSettings):
