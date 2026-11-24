@@ -1,51 +1,8 @@
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.models import (
-    Component,
-    Finding,
-    FindingStatus,
-    Organization,
-    Product,
-    ProductVersion,
-    User,
-    Vulnerability,
-)
-from tests.helpers import bearer_header
-
-
-def _version(
-    session: Session, organization: Organization, product_name: str = "Pump Controller"
-) -> ProductVersion:
-    product = Product(organization_id=organization.id, name=product_name)
-    product_version = ProductVersion(product=product, version="1.0")
-    session.add(product_version)
-    session.flush()
-    return product_version
-
-
-def _finding(
-    session: Session,
-    product_version: ProductVersion,
-    osv_id: str,
-    known_exploited: bool = False,
-    status: FindingStatus = FindingStatus.NEW,
-) -> Finding:
-    component = Component(ecosystem="PyPI", name=f"pkg-{osv_id.lower()}", version="1.0.0")
-    vulnerability = Vulnerability(
-        osv_id=osv_id, severity="high", is_known_exploited=known_exploited
-    )
-    session.add_all([component, vulnerability])
-    session.flush()
-    finding = Finding(
-        product_version_id=product_version.id,
-        component_id=component.id,
-        vulnerability_id=vulnerability.id,
-        status=status,
-    )
-    session.add(finding)
-    session.flush()
-    return finding
+from app.models import FindingStatus, Organization, User
+from tests.helpers import add_finding, add_product_version, bearer_header
 
 
 def _list(client: TestClient, organization: Organization, user: User, query: str = "") -> dict:
@@ -59,7 +16,7 @@ def _list(client: TestClient, organization: Organization, user: User, query: str
 def test_member_sees_the_organisations_findings(
     client: TestClient, session: Session, acme: Organization, viewer: User
 ) -> None:
-    _finding(session, _version(session, acme), "GHSA-0001")
+    add_finding(session, add_product_version(session, acme), "GHSA-0001")
 
     page = _list(client, acme, viewer)
 
@@ -76,7 +33,7 @@ def test_other_organisations_findings_are_not_listed(
 ) -> None:
     globex = session.get(Organization, outsider.memberships[0].organization_id)
     assert globex is not None
-    _finding(session, _version(session, globex), "GHSA-0001")
+    add_finding(session, add_product_version(session, globex), "GHSA-0001")
 
     assert _list(client, acme, viewer)["total"] == 0
 
@@ -90,10 +47,10 @@ def test_non_member_gets_404(client: TestClient, acme: Organization, outsider: U
 def test_known_exploited_findings_come_first(
     client: TestClient, session: Session, acme: Organization, viewer: User
 ) -> None:
-    version = _version(session, acme)
-    _finding(session, version, "GHSA-0001")
-    _finding(session, version, "GHSA-KEV1", known_exploited=True)
-    _finding(session, version, "GHSA-0002")
+    version = add_product_version(session, acme)
+    add_finding(session, version, "GHSA-0001")
+    add_finding(session, version, "GHSA-KEV1", known_exploited=True)
+    add_finding(session, version, "GHSA-0002")
 
     page = _list(client, acme, viewer)
 
@@ -103,9 +60,9 @@ def test_known_exploited_findings_come_first(
 def test_findings_can_be_filtered_by_status(
     client: TestClient, session: Session, acme: Organization, viewer: User
 ) -> None:
-    version = _version(session, acme)
-    _finding(session, version, "GHSA-0001")
-    _finding(session, version, "GHSA-0002", status=FindingStatus.INVESTIGATING)
+    version = add_product_version(session, acme)
+    add_finding(session, version, "GHSA-0001")
+    add_finding(session, version, "GHSA-0002", status=FindingStatus.INVESTIGATING)
 
     page = _list(client, acme, viewer, "?status=investigating")
 
@@ -115,9 +72,9 @@ def test_findings_can_be_filtered_by_status(
 def test_findings_can_be_filtered_by_known_exploited(
     client: TestClient, session: Session, acme: Organization, viewer: User
 ) -> None:
-    version = _version(session, acme)
-    _finding(session, version, "GHSA-0001")
-    _finding(session, version, "GHSA-KEV1", known_exploited=True)
+    version = add_product_version(session, acme)
+    add_finding(session, version, "GHSA-0001")
+    add_finding(session, version, "GHSA-KEV1", known_exploited=True)
 
     page = _list(client, acme, viewer, "?known_exploited=true")
 
@@ -127,9 +84,9 @@ def test_findings_can_be_filtered_by_known_exploited(
 def test_findings_can_be_filtered_by_product(
     client: TestClient, session: Session, acme: Organization, viewer: User
 ) -> None:
-    _finding(session, _version(session, acme, "Pump Controller"), "GHSA-0001")
-    press = _version(session, acme, "Press Control Unit")
-    _finding(session, press, "GHSA-0002")
+    add_finding(session, add_product_version(session, acme, "Pump Controller"), "GHSA-0001")
+    press = add_product_version(session, acme, "Press Control Unit")
+    add_finding(session, press, "GHSA-0002")
 
     page = _list(client, acme, viewer, f"?product_id={press.product_id}")
 
@@ -139,9 +96,9 @@ def test_findings_can_be_filtered_by_product(
 def test_pages_split_the_list_without_overlap(
     client: TestClient, session: Session, acme: Organization, viewer: User
 ) -> None:
-    version = _version(session, acme)
+    version = add_product_version(session, acme)
     for number in range(3):
-        _finding(session, version, f"GHSA-000{number}")
+        add_finding(session, version, f"GHSA-000{number}")
 
     first = _list(client, acme, viewer, "?limit=2&offset=0")
     second = _list(client, acme, viewer, "?limit=2&offset=2")

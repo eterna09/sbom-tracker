@@ -66,3 +66,8 @@ def _apply_filters(query: Select, filters: FindingFilters) -> Select:
     if filters.known_exploited is not None:
         query = query.where(Vulnerability.is_known_exploited == filters.known_exploited)
     return query
+
+
+def get_finding(session: Session, organization_id: int, finding_id: int) -> FindingRow | None:
+    """Return one of the organisation's findings, or None (IDOR protection)."""
+    return session.execute(_findings_of(organization_id).where(Finding.id == finding_id)).first()

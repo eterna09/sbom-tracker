@@ -86,7 +86,7 @@ flowchart LR
 
 | Threat | Mitigation | Status |
 |---|---|---|
-| User denies having triaged a finding as "not affected" | `triaged_by_id` stored on the finding; justification required for "not affected" | Planned (schema implemented) |
+| User denies having triaged a finding as "not affected" | `triaged_by_id` and `updated_at` stored on every triage; justification required for "not affected" | Implemented |
 | Actions cannot be traced afterwards | Append-only audit log (logins, uploads, triage, key use). The database blocks deleting users, keys or organisations that appear in it | Planned (schema implemented, including the deletion protection) |
 
 ### Information disclosure
