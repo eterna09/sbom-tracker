@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     jwt_secret_key: str
     access_token_lifetime_minutes: int = 30
     redis_url: str | None = None
+    log_level: str = "INFO"
 
 
 @lru_cache

@@ -85,6 +85,15 @@ This list contains only measures that are **implemented and merged**. Planned me
 | No secrets in the log: passwords, tokens and API keys are never recorded (tested); failed logins store only the lowercased email, truncated to 320 characters | `app/audit/service.py`, `tests/test_audit.py` |
 | Readable only by the organisation's admins, newest first, paginated; served by an index on `(organization_id, occurred_at)` | `app/audit/router.py`, `migrations/` |
 
+## Logging and monitoring
+
+| Measure | Where |
+|---|---|
+| Structured JSON logs with a request id per request, returned as `X-Request-ID` | `app/logging_config.py`, `app/middleware.py`, `tests/test_logging.py` |
+| Credentials never logged: no headers, bodies or query strings; uvicorn access log disabled (tested with a real token and API key) | `app/middleware.py`, `tests/test_logging.py`, Render start command |
+| Rate-limited login attempts logged as warnings (client IP only, no credentials) | `app/auth/rate_limit.py`, `tests/test_logging.py` |
+| External uptime monitoring of `/health/ready` with email alerts | uptime monitor |
+
 ## API
 
 | Measure | Where |

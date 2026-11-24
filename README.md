@@ -230,6 +230,14 @@ Tests run against a separate test database. Each test runs inside a transaction 
 - **Neon** PostgreSQL 17 (Frankfurt), direct TLS connection.
 - **Render Key Value** (Free, Valkey 8, Frankfurt, `allkeys-lru`), reached through its internal URL; external access disabled.
 
+## Observability
+
+- **Structured logs:** every log line is one JSON object on stdout (collected by Render). Each request gets one line with `request_id`, `method`, `path` (without query string), `status` and `duration_ms`; the same id is returned in the `X-Request-ID` response header, so a reported error can be traced to its log line.
+- **No credentials in logs:** headers, request bodies and query strings are never logged (tested); uvicorn's own access log is disabled (`--no-access-log`).
+- **Security events:** requests blocked by the login rate limit are logged as warnings (client IP, no email or password). Logins, uploads, triage and API key changes are in the [audit log](#use-cases).
+- **Monitoring:** an external uptime monitor calls `/health/ready` (app **and** database) every 5 minutes and alerts by email; Render shows CPU, memory and request metrics.
+- **Log level:** `LOG_LEVEL` environment variable (default `INFO`).
+
 ## Development workflow
 
 GitHub Flow: short-lived branches, pull requests with green CI, merge commits that keep the individual atomic commits visible, and conventional commit prefixes (`feat`, `fix`, `test`, `refactor`, `docs`, `chore`, `style`, `ci`, `perf`). New behaviour is specified test-first where practical; the history shows test commits followed by implementation commits, and planned refactorings (smell → refactoring, tests unchanged) as separate `refactor` commits.
