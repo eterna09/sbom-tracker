@@ -4,6 +4,7 @@ from typing import Annotated, Self
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field, model_validator
 
+from app.audit.service import AuditAction, record
 from app.auth.access import AnalystAccess, CurrentAccess
 from app.cache import CacheDep
 from app.db import SessionDep
@@ -111,10 +112,21 @@ def triage_finding(
     row = get_finding(session, access.organization.id, finding_id)
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Finding not found")
+    finding = row[0]
+    previous = finding.status
     try:
-        triage(row[0], request.status, request.justification, access.user)
+        triage(finding, request.status, request.justification, access.user)
     except InvalidTransitionError as error:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+    record(
+        session,
+        AuditAction.FINDING_TRIAGED,
+        organization_id=access.organization.id,
+        user_id=access.user.id,
+        target_type="finding",
+        target_id=finding.id,
+        details={"from": previous.value, "to": request.status.value},
+    )
     session.commit()
-    invalidate_exposure(cache, access.organization.id)  # new
+    invalidate_exposure(cache, access.organization.id)
     return _to_out(row)

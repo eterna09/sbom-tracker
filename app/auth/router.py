@@ -6,6 +6,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.audit.service import AuditAction, attempted_email, record
 from app.auth.dependencies import CurrentUser
 from app.auth.rate_limit import limit_login_attempts
 from app.auth.service import authenticate_user
@@ -46,11 +47,15 @@ def login(
 ) -> TokenResponse:
     user = authenticate_user(session, form.username, form.password)
     if user is None:
+        record(session, AuditAction.LOGIN_FAILED, details={"email": attempted_email(form.username)})
+        session.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    record(session, AuditAction.LOGIN_SUCCEEDED, user_id=user.id)
+    session.commit()
     lifetime = timedelta(minutes=settings.access_token_lifetime_minutes)
     return TokenResponse(
         access_token=create_access_token(user.id, settings.jwt_secret_key, lifetime)
