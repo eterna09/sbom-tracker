@@ -11,7 +11,7 @@ This list contains only measures that are **implemented and merged**. Planned me
 | Login via the standard OAuth2 password flow; no custom authentication scheme | `app/auth/router.py` |
 | **No user enumeration:** identical 401 message for unknown email and wrong password | `app/auth/router.py`, `tests/test_login.py` |
 | **Timing-attack protection:** unknown emails still run a dummy Argon2 verification, so response times don't reveal which accounts exist | `app/auth/service.py` |
-| **Login rate limiting** (`limits` library, moving window): 10 attempts per minute per client IP and 5 per minute per account; excess attempts get 429 with `Retry-After`. Checked before the password hash, so blocked attempts cost no CPU | `app/auth/rate_limit.py`, `tests/test_login.py` |
+| **Login rate limiting** (`limits` library, moving window): 10 attempts per minute per client IP and 5 per minute per account; excess attempts get 429 with `Retry-After`. Checked before the password hash, so blocked attempts cost no CPU. Counters shared in Redis across processes (tested with two limiters); fails open with an error log if Redis is unreachable | `app/auth/rate_limit.py`, `tests/test_login.py`, `tests/test_rate_limit.py` |
 | IDOR protection shared by user and CI endpoints: product lookups always go through one function scoped to the caller's organisation | `app/products/queries.py` |
 
 ## Tokens

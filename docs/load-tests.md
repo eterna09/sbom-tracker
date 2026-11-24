@@ -39,3 +39,25 @@ A simulated security analyst, authenticated with one bearer token, waits 0.5–1
 - Locust, API, PostgreSQL and Valkey shared one machine (WSL), so the numbers compare setups; they are not production capacity.
 - One 2-minute run per setup.
 - The login rate limiter kept its counters per process in these runs; with several processes it must use shared storage (Redis).
+
+## Production smoke test, 25 November 2026
+
+A short, deliberately small run against the live deployment (Render Starter, Neon Free, Render Key Value Free), to check behaviour under modest load without exhausting free-plan resources: 20 users, ramped up at 5 per second, 1 minute, same scenario as above.
+
+| | Median | 95th percentile | Requests per second |
+|---|---|---|---|
+| exposure | 45 ms | 70 ms | 9.2 |
+| findings | 49 ms | 69 ms | 6.5 |
+| findings (KEV) | 49 ms | 72 ms | 3.2 |
+| **all** | **47 ms** | **70 ms** | **19.0** |
+
+1,123 requests, 1 failure (0.09 %): a connection closed without a response (`RemoteDisconnected`), with no 5xx in the application log, i.e. at the network layer, not an application error.
+
+The production database holds little product data (load-test data is only ever seeded locally), so these times mainly reflect the request path: TLS from Berlin to Frankfurt, Render's proxy, the application, and the round trip to Neon.
+
+## Scaling
+
+- **Stateless application:** identity lives in signed tokens, data in PostgreSQL, the cache and the login rate-limit counters in Redis (Valkey). Any process or instance can serve any request, so the service scales out by adding uvicorn workers or Render instances (run C: 4 workers cut the 95th percentile from 290 ms to 63 ms).
+- **Shared rate limiting:** login counters are kept in Redis (`RATE_LIMIT_STORAGE_URL`), so limits hold across processes and instances; with per-process memory, 4 processes would have allowed 4 × the intended attempts.
+- **Next bottlenecks when scaling further:** database connections (each process keeps its own pool, and Neon limits connections per compute), Neon compute size (0.25–2 CU autoscaling on the current plan), and the per-component queries in the SBOM upload (planned: batch loading).
+- **What was not scaled:** the vulnerability import runs as a single command-line job; it is write-heavy and runs rarely, so it is optimised for throughput (batching) rather than parallelism.
