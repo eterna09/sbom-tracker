@@ -34,7 +34,8 @@ Manufacturers upload a Software Bill of Materials (SBOM) for each product versio
 | UC7 | Triage findings through defined states (new → investigating → affected / not affected → fixed) | **Implemented:** `POST /organizations/{id}/findings/{finding_id}/triage` (analyst and above); allowed transitions defined as a state machine; `not_affected` requires a justification; who triaged is recorded |
 | UC8 | Track CRA Article 14 deadlines (24 h / 72 h / 14 days) for exploited, affected findings | Planned (schema implemented) |
 | UC9 | Exposure summary per product (cached) | **Implemented:** `GET /organizations/{id}/exposure`, one hand-written SQL query; cached in Redis (Valkey) per organisation, invalidated on SBOM upload, triage and product creation, 5-minute TTL |
-| UC10 | Audit log of security-relevant actions | Planned (schema implemented) |
+| UC10 | Audit log of security-relevant actions | **Implemented:** logins (success and failure), SBOM uploads, triage decisions and API key creation / revocation are recorded in the same transaction as the action; admins read their organisation's log via `GET /organizations/{id}/audit-log` (paginated, newest first); append-only |
+
 
 **When matching runs (UC5):**
 - Automatically after every SBOM upload (`PUT /ci/products/{id}/versions/{version}/sbom`), in the same transaction. The response reports `findings_created`.

@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.audit.service import AuditAction, record
 from app.auth.dependencies import CurrentApiKey
 from app.cache import CacheDep
 from app.db import SessionDep
@@ -56,6 +57,18 @@ def upload_sbom(
     product_version = _get_or_create_version(session, product, version)
     result = store_sbom(session, product_version, bom)
     findings_created = match_product_version(session, product_version)
+    record(
+        session,
+        AuditAction.SBOM_UPLOADED,
+        organization_id=api_key.organization_id,
+        api_key_id=api_key.id,
+        target_type="product_version",
+        target_id=product_version.id,
+        details={
+            "components_stored": result.components_stored,
+            "findings_created": findings_created,
+        },
+    )
     session.commit()
     invalidate_exposure(cache, api_key.organization_id)
     return SbomUploadOut(

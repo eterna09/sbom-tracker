@@ -4,6 +4,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.api_keys.router import router as api_keys_router
+from app.audit.router import router as audit_router
 from app.auth.router import router as auth_router
 from app.db import SessionDep
 from app.exposure.router import router as exposure_router
@@ -20,6 +21,7 @@ app.include_router(api_keys_router)
 app.include_router(sboms_router)
 app.include_router(findings_router)
 app.include_router(exposure_router)
+app.include_router(audit_router)
 
 
 @app.get("/", include_in_schema=False)

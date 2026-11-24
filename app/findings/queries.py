@@ -4,6 +4,7 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
 from app.models import Component, Finding, FindingStatus, Product, ProductVersion, Vulnerability
+from app.pagination import PageRequest
 
 FindingRow = tuple[Finding, ProductVersion, Product, Component, Vulnerability]
 
@@ -21,12 +22,6 @@ class FindingFilters:
     status: FindingStatus | None = None
     product_id: int | None = None
     known_exploited: bool | None = None
-
-
-@dataclass(frozen=True)
-class PageRequest:
-    limit: int
-    offset: int
 
 
 @dataclass(frozen=True)

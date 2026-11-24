@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
+from app.audit.service import AuditAction, record
 from app.auth.access import AdminAccess
 from app.auth.api_keys import generate_api_key, hash_api_key
 from app.db import SessionDep
@@ -47,6 +48,17 @@ def create_api_key(
         key_hash=hash_api_key(plaintext),
     )
     session.add(api_key)
+    session.flush()
+    record(
+        session,
+        AuditAction.API_KEY_CREATED,
+        organization_id=access.organization.id,
+        user_id=access.user.id,
+        api_key_id=api_key.id,
+        target_type="api_key",
+        target_id=api_key.id,
+        details={"name": api_key.name},
+    )
     session.commit()
     return ApiKeyCreated(**_to_out(api_key).model_dump(), key=plaintext)
 
@@ -70,5 +82,14 @@ def revoke_api_key(api_key_id: int, access: AdminAccess, session: SessionDep) ->
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API key not found")
     if api_key.revoked_at is None:
         api_key.revoked_at = datetime.now(UTC)
+        record(
+            session,
+            AuditAction.API_KEY_REVOKED,
+            organization_id=access.organization.id,
+            user_id=access.user.id,
+            api_key_id=api_key.id,
+            target_type="api_key",
+            target_id=api_key.id,
+        )
         session.commit()
     return _to_out(api_key)
