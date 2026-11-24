@@ -59,8 +59,12 @@ class NullCache:
 
 @lru_cache
 def get_cache() -> Cache:
-    url = get_settings().redis_url
-    if url is None:
+    return cache_from_url(get_settings().redis_url)
+
+
+def cache_from_url(url: str | None) -> Cache:
+    """Build the cache for a URL; a missing or empty URL means: run without a cache."""
+    if not url:
         return NullCache()
     client = redis.Redis.from_url(
         url, decode_responses=True, socket_timeout=0.5, socket_connect_timeout=0.5

@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     access_token_lifetime_minutes: int = 30
     redis_url: str | None = None
     log_level: str = "INFO"
+    rate_limit_storage_url: str = "memory://"
 
 
 @lru_cache
