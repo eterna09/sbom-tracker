@@ -75,6 +75,16 @@ This list contains only measures that are **implemented and merged**. Planned me
 | Transactions: the seed, migrations, each OSV import batch, and SBOM upload together with matching are atomic (all or nothing) | `app/seed.py`, Alembic, `app/vulnerabilities/import_osv.py`, `app/sboms/router.py` |
 | Continuous backups: Neon point-in-time restore | Neon |
 
+## Audit log
+
+| Measure | Where |
+|---|---|
+| Logins (success and failure), SBOM uploads (with the API key used), triage decisions (old and new status) and API key creation / revocation are recorded | `app/audit/service.py`, `tests/test_audit.py` |
+| Entries are written in the same transaction as the action; rejected actions leave no entry | `app/findings/router.py`, `tests/test_audit.py` |
+| Append-only: no endpoint updates or deletes entries; referenced users, keys and organisations cannot be deleted | `app/audit/router.py`, `app/models/audit.py` |
+| No secrets in the log: passwords, tokens and API keys are never recorded (tested); failed logins store only the lowercased email, truncated to 320 characters | `app/audit/service.py`, `tests/test_audit.py` |
+| Readable only by the organisation's admins, newest first, paginated; served by an index on `(organization_id, occurred_at)` | `app/audit/router.py`, `migrations/` |
+
 ## API
 
 | Measure | Where |

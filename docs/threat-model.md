@@ -91,7 +91,7 @@ flowchart LR
 | Threat | Mitigation | Status |
 |---|---|---|
 | User denies having triaged a finding as "not affected" | `triaged_by_id` and `updated_at` stored on every triage; justification required for "not affected" | Implemented |
-| Actions cannot be traced afterwards | Append-only audit log (logins, uploads, triage, key use). The database blocks deleting users, keys or organisations that appear in it | Planned (schema implemented, including the deletion protection) |
+| Actions cannot be traced afterwards | Append-only audit log (logins, uploads, triage, API key creation and revocation), written in the same transaction as each action; no endpoint can change or delete entries; the database blocks deleting users, keys or organisations that appear in it | Implemented |
 
 ### Information disclosure
 
@@ -106,6 +106,7 @@ flowchart LR
 | Local database or cache exposed on the network | Docker Compose binds PostgreSQL and Valkey to `127.0.0.1` only | Implemented |
 | Production cache reachable from the internet | Only the internal URL is used; external access disabled (no allowed IPs) | Implemented |
 | Token contents readable | JWTs are signed, not encrypted, so they contain only the user id and timestamps, nothing confidential | Implemented (by design) |
+| Audit log reveals members' activity or secrets | Readable only by the organisation's admins; passwords, tokens and API keys are never logged | Implemented |
 
 ### Denial of service
 
@@ -138,3 +139,5 @@ flowchart LR
 - **Unparsable versions are treated as not affected:** this avoids false alarms from malformed SBOM or OSV data, but a malformed version string can hide a real vulnerability (false negative). Mitigation planned: count and report skipped evaluations.
 - **Cache without password on the internal network:** the Render Key Value instance accepts unauthenticated connections from Render services in the same region; external access is disabled. Render's internal authentication could be enabled if stricter isolation is needed.
 - **Stale summaries after a sync:** after `rematch`, cached exposure summaries can be up to 5 minutes old (TTL), because a sync affects all organisations and is not invalidated key by key.
+- **Rate-limited login attempts are not in the audit log:** attempts rejected with 429 never reach the login logic; they appear only in the server's request log. Failed attempts below the limit are recorded.
+- **Login events have no organisation:** they are stored, but not visible in any organisation's admin view; reading them requires database access.
