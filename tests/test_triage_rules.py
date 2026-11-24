@@ -1,8 +1,8 @@
 from itertools import product
 
 import pytest
-from app.findings.triage import can_transition
 
+from app.findings.triage import can_transition
 from app.models import FindingStatus
 
 NEW = FindingStatus.NEW
