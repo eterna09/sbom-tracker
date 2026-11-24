@@ -67,10 +67,11 @@ def add_finding(
     osv_id: str,
     known_exploited: bool = False,
     status: FindingStatus = FindingStatus.NEW,
+    severity: str = "high",
 ) -> Finding:
     component = Component(ecosystem="PyPI", name=f"pkg-{osv_id.lower()}", version="1.0.0")
     vulnerability = Vulnerability(
-        osv_id=osv_id, severity="high", is_known_exploited=known_exploited
+        osv_id=osv_id, severity=severity, is_known_exploited=known_exploited
     )
     session.add_all([component, vulnerability])
     session.flush()

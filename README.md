@@ -33,7 +33,7 @@ Manufacturers upload a Software Bill of Materials (SBOM) for each product versio
 | UC6 | Browse findings with filtering, sorting and pagination | **Implemented:** `GET /organizations/{id}/findings` |
 | UC7 | Triage findings through defined states (new → investigating → affected / not affected → fixed) | **Implemented:** `POST /organizations/{id}/findings/{finding_id}/triage` (analyst and above); allowed transitions defined as a state machine; `not_affected` requires a justification; who triaged is recorded |
 | UC8 | Track CRA Article 14 deadlines (24 h / 72 h / 14 days) for exploited, affected findings | Planned (schema implemented) |
-| UC9 | Exposure summary per product (cached) | Planned |
+| UC9 | Exposure summary per product (cached) | **Implemented:** `GET /organizations/{id}/exposure`, one hand-written SQL query; caching planned |
 | UC10 | Audit log of security-relevant actions | Planned (schema implemented) |
 
 **When matching runs (UC5):**
@@ -123,6 +123,17 @@ ecosystem-only queries can use the leftmost prefix).
 | With index | Bitmap Index Scan ×4 → BitmapOr → Bitmap Heap Scan | 0 | 0.81 ms |
 
 Trade-off: the OSV import must also maintain the index on every insert.
+
+### Advanced SQL: exposure summary
+
+`GET /organizations/{id}/exposure` returns one row per product: its latest uploaded version and the open findings of that version, by severity and exploitation status. It is one hand-written query ([`app/exposure/queries.py`](app/exposure/queries.py)) with bound parameters:
+
+- **CTE + window function:** `ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY sbom_uploaded_at DESC, id DESC)` picks each product's latest version
+- **Conditional aggregation:** `count(...) FILTER (WHERE ...)` computes four counts in one pass
+- **LEFT JOINs:** products without an SBOM or without findings are still listed, with zeros (`count(column)` rather than `count(*)`, so the NULL row from the outer join is not counted)
+- **Ordering:** most exploited first, then most critical, then most open findings
+
+Only the latest version counts, because older versions are no longer shipped and would otherwise inflate a product's exposure.
 
 ### Data
 
