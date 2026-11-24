@@ -2,18 +2,9 @@ from collections.abc import Iterator
 
 import pytest
 import redis
-from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.cache import NullCache, RedisCache, cache_from_url
-
-
-class CacheTestSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
-    test_redis_url: str | None = None
-
-
-TEST_REDIS_URL = CacheTestSettings().test_redis_url
-needs_redis = pytest.mark.skipif(TEST_REDIS_URL is None, reason="TEST_REDIS_URL is not set")
+from tests.helpers import TEST_REDIS_URL, needs_redis
 
 
 @pytest.fixture

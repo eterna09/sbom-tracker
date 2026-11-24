@@ -1,5 +1,7 @@
 from datetime import timedelta
 
+import pytest
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.orm import Session
 
 from app.auth.tokens import create_access_token
@@ -84,3 +86,12 @@ def add_finding(
     session.add(finding)
     session.flush()
     return finding
+
+
+class RedisTestSettings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    test_redis_url: str | None = None
+
+
+TEST_REDIS_URL = RedisTestSettings().test_redis_url
+needs_redis = pytest.mark.skipif(TEST_REDIS_URL is None, reason="TEST_REDIS_URL is not set")
