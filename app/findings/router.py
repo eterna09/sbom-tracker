@@ -5,7 +5,9 @@ from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field, model_validator
 
 from app.auth.access import AnalystAccess, CurrentAccess
+from app.cache import CacheDep
 from app.db import SessionDep
+from app.exposure.service import invalidate_exposure
 from app.findings.queries import (
     FindingFilters,
     FindingRow,
@@ -100,7 +102,11 @@ def get_findings(
 
 @router.post("/{finding_id}/triage", summary="Move a finding to a new triage status (analyst)")
 def triage_finding(
-    finding_id: int, request: TriageRequest, access: AnalystAccess, session: SessionDep
+    finding_id: int,
+    request: TriageRequest,
+    access: AnalystAccess,
+    session: SessionDep,
+    cache: CacheDep,  # new
 ) -> FindingOut:
     row = get_finding(session, access.organization.id, finding_id)
     if row is None:
@@ -110,4 +116,5 @@ def triage_finding(
     except InvalidTransitionError as error:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
     session.commit()
+    invalidate_exposure(cache, access.organization.id)  # new
     return _to_out(row)

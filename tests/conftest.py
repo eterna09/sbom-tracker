@@ -8,9 +8,11 @@ from sqlalchemy.orm import Session, sessionmaker
 
 import app.models  # noqa: F401  registers all models on Base.metadata
 from app.auth.rate_limit import reset_login_attempts
+from app.cache import get_cache
 from app.db import Base, get_session
 from app.main import app
 from app.models import Organization, Role, User
+from tests.fakes import InMemoryCache
 from tests.helpers import add_member
 
 
@@ -41,10 +43,17 @@ def session(engine) -> Iterator[Session]:
 
 
 @pytest.fixture
+def cache() -> InMemoryCache:
+    return InMemoryCache()
+
+
+@pytest.fixture
 def client(session: Session) -> Iterator[TestClient]:
     app.dependency_overrides[get_session] = lambda: session
+    app.dependency_overrides[get_cache] = lambda: cache
     yield TestClient(app)
     app.dependency_overrides.clear()
+    cache: InMemoryCache
 
 
 @pytest.fixture

@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     database_url: str
     jwt_secret_key: str
     access_token_lifetime_minutes: int = 30
+    redis_url: str | None = None
 
 
 @lru_cache

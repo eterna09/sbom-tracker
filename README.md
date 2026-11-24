@@ -9,14 +9,14 @@ Manufacturers upload a Software Bill of Materials (SBOM) for each product versio
 - **Threat model:** [docs/threat-model.md](docs/threat-model.md)
 - **Implemented security measures:** [docs/security-measures.md](docs/security-measures.md)
 
-> **Project status:** work in progress. Implemented: authentication and organisation roles, products and versions, CI API keys, SBOM upload, OSV and CISA KEV import, vulnerability matching that creates findings, and a paginated findings list. Triage, CRA deadline tracking, the cached exposure summary and the audit log are listed below as *planned*. This README is updated as features are merged.
+> **Project status:** work in progress. Implemented: authentication and organisation roles, products and versions, CI API keys, SBOM upload, OSV and CISA KEV import, vulnerability matching that creates findings, a paginated findings list, triage as a state machine, and a cached exposure summary per product. CRA deadline tracking and the audit log are listed below as *planned*. This README is updated as features are merged.
 
 ### Guide for assessors
 
 | Module | Where to look |
 |---|---|
-| Web Backend Technologies (SE_46) | [Architecture](#architecture), [Tech stack](#tech-stack), [Use cases](#use-cases), [Deployment](#deployment), live API: https://sbom-tracker.onrender.com |
-| Databases | [Database](#database), [Query optimisation](#query-optimisation-matching-lookup), [Data](#data), [ER model](docs/er-model.md) |
+| Web Backend Technologies (SE_46) | [Architecture](#architecture), [Tech stack](#tech-stack), [Use cases](#use-cases), [Caching](#caching-exposure-summary), [Deployment](#deployment), live API: https://sbom-tracker.onrender.com |
+| Databases | [Database](#database), [Query optimisation](#query-optimisation-matching-lookup), [Advanced SQL](#advanced-sql-exposure-summary), [Data](#data), [ER model](docs/er-model.md) |
 | Cyber Security | [Security](#security), [Threat model](docs/threat-model.md), [Implemented measures](docs/security-measures.md) |
 
 ---
@@ -33,7 +33,7 @@ Manufacturers upload a Software Bill of Materials (SBOM) for each product versio
 | UC6 | Browse findings with filtering, sorting and pagination | **Implemented:** `GET /organizations/{id}/findings` |
 | UC7 | Triage findings through defined states (new → investigating → affected / not affected → fixed) | **Implemented:** `POST /organizations/{id}/findings/{finding_id}/triage` (analyst and above); allowed transitions defined as a state machine; `not_affected` requires a justification; who triaged is recorded |
 | UC8 | Track CRA Article 14 deadlines (24 h / 72 h / 14 days) for exploited, affected findings | Planned (schema implemented) |
-| UC9 | Exposure summary per product (cached) | **Implemented:** `GET /organizations/{id}/exposure`, one hand-written SQL query; caching planned |
+| UC9 | Exposure summary per product (cached) | **Implemented:** `GET /organizations/{id}/exposure`, one hand-written SQL query; cached in Redis (Valkey) per organisation, invalidated on SBOM upload, triage and product creation, 5-minute TTL |
 | UC10 | Audit log of security-relevant actions | Planned (schema implemented) |
 
 **When matching runs (UC5):**
@@ -63,16 +63,21 @@ flowchart LR
         DB[("PostgreSQL")]
     end
 
+    subgraph KV["Render Key Value (Valkey 8, Frankfurt)"]
+        Cache[("Cache")]
+    end
+
     GitHub["GitHub repository"] -->|"pull request"| Actions["GitHub Actions CI<br/>lint · dependency audit · migration round trip · tests"]
     GitHub -->|"merge to main → auto-deploy"| Render
 
     CI -->|HTTPS| API
     Analyst -->|HTTPS| API
     API -->|"TLS (sslmode=require)"| DB
+    API -->|"internal network"| Cache
 ```
 
-- **Architecture style:** a modular monolith. One FastAPI application, structured by domain (`app/auth`, `app/products`, `app/sboms`, `app/vulnerabilities`, `app/matching`, `app/findings`, `app/models`). The vulnerability sync runs as command-line jobs; a scheduled background job is planned.
-- **Code layers:** HTTP routers (thin) → services and queries (logic) → SQLAlchemy models / database. Dependencies such as the database session and settings are injected with FastAPI's `Depends`.
+- **Architecture style:** a modular monolith. One FastAPI application, structured by domain (`app/auth`, `app/products`, `app/sboms`, `app/vulnerabilities`, `app/matching`, `app/findings`, `app/exposure`, `app/models`). The vulnerability sync runs as command-line jobs; a scheduled background job is planned.
+- **Code layers:** HTTP routers (thin) → services and queries (logic) → SQLAlchemy models / database. Dependencies such as the database session, the cache and settings are injected with FastAPI's `Depends`.
 
 ## Tech stack
 
@@ -82,11 +87,12 @@ flowchart LR
 | Framework | FastAPI | Input validation via Pydantic, automatic OpenAPI / Swagger docs, dependency injection |
 | Database | PostgreSQL 17 | Relational data with many relationships, strong constraints, transactional DDL, advanced index types |
 | ORM / migrations | SQLAlchemy 2.1, Alembic | Typed models; versioned, reviewable schema migrations |
+| Cache | Valkey 8 (Render Key Value; Docker locally), redis-py | Redis-compatible open-source fork; in-memory cache for the exposure summary |
 | Auth | Argon2id (argon2-cffi), JWT HS256 (PyJWT), `limits` | Current password-hashing recommendation; standard, library-based tokens; login rate limiting |
 | Version handling | `packaging` (PEP 440), `semver` (SemVer 2.0), `packageurl-python` | Reference implementations of each ecosystem's version and package-URL rules |
 | Quality | Ruff (lint, format, security rules), pytest, pip-audit | One fast tool for style and static checks; isolated database tests; known-vulnerability scan of dependencies |
-| CI | GitHub Actions, Dependabot | Lint, dependency audit, migration round trip and tests on every pull request; weekly update proposals |
-| Hosting | Render (Starter), Neon (Free) | PaaS with HTTPS and auto-deploy; managed PostgreSQL with point-in-time restore |
+| CI | GitHub Actions, Dependabot | Lint, dependency audit, migration round trip and tests (with PostgreSQL and Valkey services) on every pull request; weekly update proposals |
+| Hosting | Render (Starter web service, Free Key Value), Neon (Free) | PaaS with HTTPS and auto-deploy; managed PostgreSQL with point-in-time restore |
 
 ---
 
@@ -135,6 +141,16 @@ Trade-off: the OSV import must also maintain the index on every insert.
 
 Only the latest version counts, because older versions are no longer shipped and would otherwise inflate a product's exposure.
 
+### Caching: exposure summary
+
+The exposure query runs on every request, but its result only changes when data changes. It is cached with **cache-aside** ([`app/exposure/service.py`](app/exposure/service.py)):
+
+- Key per organisation (`exposure:{organization_id}`), so no tenant can be served another tenant's summary
+- **Invalidation after commit** on SBOM upload, triage and product creation; a 5-minute TTL as a safety net
+- After a vulnerability sync (`rematch`), summaries may be up to 5 minutes old (accepted trade-off)
+- **Graceful degradation:** if the cache is unreachable, the API falls back to the database and logs a warning; without `REDIS_URL` the app runs without a cache
+- The cache is behind a `Cache` protocol, so tests use an in-memory fake; the Redis implementation is tested against a real Valkey in CI
+
 ### Data
 
 | Data | Source | Amount (current) |
@@ -142,7 +158,7 @@ Only the latest version counts, because older versions are no longer shipped and
 | Organisations, users, memberships | `python -m app.seed`: deterministic demo data, idempotent, one transaction | 1 organisation, 3 users (one per role) |
 | Vulnerabilities, aliases, affected ranges | OSV.dev PyPI export (`all.zip`), imported with `python -m app.vulnerabilities.import_osv` | 27,069 vulnerabilities, 36,158 aliases, 30,653 affected ranges (local import, Nov 2026). First import 29 s; idempotent re-run 19 s with every record unchanged |
 | Components / SBOMs | Uploaded through the API like a CI pipeline would; SBOMs generated with Syft from real container images | Upload implemented (UC3); bulk import of real SBOMs planned |
-| Findings, report cases | Produced by the application's matching logic: after every SBOM upload, and with `python -m app.matching.rematch` after a sync | Findings implemented (UC5, UC6); report cases planned (UC8) |
+| Findings, report cases | Produced by the application's matching logic: after every SBOM upload, and with `python -m app.matching.rematch` after a sync | Findings implemented (UC5, UC6, UC7); report cases planned (UC8) |
 | Known exploited vulnerabilities | CISA KEV catalogue (JSON), matched through CVE aliases. ENISA also aggregates CISA KEV into the EUVD; the marking logic only needs "CVE → date added", so the EU KEV catalogue can be added as a second source | 1,790 KEV entries → 47 vulnerabilities marked (Nov 2026), in 1.2 s with three set-based SQL statements |
 
 **Sync order.** After new vulnerability data arrives, run the three steps in this order, so that matching sees the newest records and KEV marks:
@@ -176,7 +192,7 @@ cp .env.example .env
 #   python -c "import secrets; print(secrets.token_urlsafe(64))"
 ```
 
-**Database** (PostgreSQL 17 in Docker, reachable only from localhost on port 5433):
+**Database and cache** (PostgreSQL 17 and Valkey 8 in Docker, reachable only from localhost on ports 5433 and 6379):
 
 ```bash
 docker compose up -d
@@ -202,15 +218,16 @@ ruff format --check .
 pip-audit -r requirements.txt
 ```
 
-Tests run against a separate test database. Each test runs inside a transaction that is rolled back afterwards, so tests never see each other's data.
+Tests run against a separate test database. Each test runs inside a transaction that is rolled back afterwards, so tests never see each other's data. API tests use an in-memory cache; the Redis cache tests use database 1 of the local Valkey (`TEST_REDIS_URL`) and are skipped if it is not set.
 
 ## Deployment
 
 - **Render** web service (Starter, Frankfurt), auto-deployed on every merge to `main`.
   - Pre-deploy command: `alembic upgrade head`
   - Health check: `/health/ready` (app running **and** database reachable)
-  - Secrets (`DATABASE_URL`, `JWT_SECRET_KEY`) are stored as Render environment variables, separate from development secrets.
+  - Secrets (`DATABASE_URL`, `JWT_SECRET_KEY`) and `REDIS_URL` are stored as Render environment variables, separate from development values.
 - **Neon** PostgreSQL 17 (Frankfurt), direct TLS connection.
+- **Render Key Value** (Free, Valkey 8, Frankfurt, `allkeys-lru`), reached through its internal URL; external access disabled.
 
 ## Development workflow
 

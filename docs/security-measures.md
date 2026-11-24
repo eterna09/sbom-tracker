@@ -14,7 +14,6 @@ This list contains only measures that are **implemented and merged**. Planned me
 | **Login rate limiting** (`limits` library, moving window): 10 attempts per minute per client IP and 5 per minute per account; excess attempts get 429 with `Retry-After`. Checked before the password hash, so blocked attempts cost no CPU | `app/auth/rate_limit.py`, `tests/test_login.py` |
 | IDOR protection shared by user and CI endpoints: product lookups always go through one function scoped to the caller's organisation | `app/products/queries.py` |
 
-
 ## Tokens
 
 | Measure | Where |
@@ -33,9 +32,8 @@ This list contains only measures that are **implemented and merged**. Planned me
 | One central dependency resolves user + organisation + role for every organisation-scoped request; endpoints never check memberships themselves | `app/auth/access.py` |
 | Role ladder viewer < analyst < admin; endpoints declare a minimum role (403 if too low) | `app/auth/access.py`, `tests/test_access.py` |
 | Non-members get **404, not 403**, so outsiders cannot tell whether an organisation exists | `app/auth/access.py`, `tests/test_products.py` |
-| **IDOR protection:** objects are always looked up together with the organisation from the URL | `app/products/router.py`, `tests/test_products.py` |
+| **IDOR protection:** objects are always looked up together with the organisation from the URL; all finding queries (list, triage, exposure) start from one organisation-scoped query | `app/products/router.py`, `app/findings/queries.py`, `tests/test_products.py`, `tests/test_triage.py` |
 | Triage restricted to analysts and admins; status changes only along the defined state machine (forbidden transitions → 409, nothing changed); "not affected" requires a justification; the acting user is recorded | `app/findings/triage.py`, `app/findings/router.py`, `tests/test_triage.py` |
-
 
 ## API keys (CI pipelines)
 
@@ -45,7 +43,6 @@ This list contains only measures that are **implemented and merged**. Planned me
 | Full key shown **once** at creation; only a SHA-256 hash is stored (fast hash is appropriate for high-entropy random keys, unlike passwords) | `app/auth/api_keys.py`, `app/api_keys/router.py` |
 | Keys belong to one organisation, can only be managed by its admins, and are revocable; revocation is idempotent and keys are never deleted (audit trail) | `app/api_keys/router.py`, `tests/test_api_keys.py` |
 | Missing, unknown and revoked keys all receive the same generic 401 | `app/auth/dependencies.py`, `tests/test_sbom_upload.py` |
-
 
 ## Secrets management
 
@@ -64,17 +61,18 @@ This list contains only measures that are **implemented and merged**. Planned me
 |---|---|
 | HTTPS for the public API (TLS terminated by Render) | Render |
 | **TLS to the database** (`sslmode=require`, `channel_binding=require`) | production `DATABASE_URL` |
-| Local PostgreSQL bound to `127.0.0.1` only, not reachable from the network | `docker-compose.yml` |
-| Hosting and database in the EU (Frankfurt) | Render, Neon |
+| Local PostgreSQL and Valkey bound to `127.0.0.1` only, not reachable from the network | `docker-compose.yml` |
+| Production cache reachable only on Render's internal network (internal URL; no external access, no allowed IPs) | Render Key Value settings |
+| Hosting, database and cache in the EU (Frankfurt) | Render, Neon |
 
 ## Data layer
 
 | Measure | Where |
 |---|---|
-| Parameterised queries via SQLAlchemy; no SQL built from strings, which prevents SQL injection | all data access |
+| Parameterised queries via SQLAlchemy; the one hand-written SQL query (exposure summary) uses bound parameters too; no SQL built from strings, which prevents SQL injection | all data access, `app/exposure/queries.py` |
 | Integrity enforced by the database: foreign keys, composite unique constraints, enums | `app/models/`, `migrations/` |
 | Audit log protected against deletion of referenced users, keys and organisations (no `ON DELETE` on its foreign keys) | `app/models/audit.py` |
-| Transactions: the seed and migrations are atomic (all or nothing) | `app/seed.py`, Alembic |
+| Transactions: the seed, migrations, each OSV import batch, and SBOM upload together with matching are atomic (all or nothing) | `app/seed.py`, Alembic, `app/vulnerabilities/import_osv.py`, `app/sboms/router.py` |
 | Continuous backups: Neon point-in-time restore | Neon |
 
 ## API
@@ -82,13 +80,15 @@ This list contains only measures that are **implemented and merged**. Planned me
 | Measure | Where |
 |---|---|
 | Input validation by FastAPI / Pydantic (422 on malformed requests) | all endpoints |
-| Explicit response models: only listed fields are returned | `app/auth/router.py` |
+| Explicit response models: only listed fields are returned | all routers |
 | Internal errors not exposed: database failures return a generic 503 | `app/main.py` |
 | Readiness health check used by the host, so a broken version never receives traffic | `/health/ready`, Render |
 | Input length limits match the database columns (e.g. product name 1–200 characters) | `app/products/router.py` |
 | Duplicates detected by database constraints and returned as 409, with no check-then-insert race condition | `app/products/router.py` |
 | Request size limit of 5 MB, enforced in middleware before the body is read (413) | `app/middleware.py`, `tests/test_sbom_upload.py` |
 | SBOM uploads validated against the CycloneDX structure (other formats → 422); unusable components are skipped and counted instead of failing the upload | `app/sboms/schemas.py`, `app/sboms/service.py` |
+| List endpoints are paginated with a capped page size (`limit` 1–100), so no request can ask for an unbounded result | `app/findings/router.py`, `tests/test_findings_list.py` |
+| Exposure summary cached per organisation (cache keys include the organisation id, tested); cache failures degrade to database queries instead of errors | `app/cache.py`, `app/exposure/service.py`, `tests/test_exposure_cache.py` |
 
 ## Secure development life cycle
 
@@ -100,8 +100,9 @@ This list contains only measures that are **implemented and merged**. Planned me
 | Security lint findings reviewed individually; the one false positive (OAuth2 token type `"bearer"`) is suppressed on that line only, with a documented reason | `app/auth/router.py` |
 | CI workflow runs with **least privilege** (`permissions: contents: read`) | `.github/workflows/ci.yml` |
 | Pinned dependency versions; development tools kept out of the production requirements | `requirements.txt`, `requirements-dev.txt` |
-| Package provenance checked before adding a new dependency (`httpx2`, `limits`) | PR history |
-| Test-first development for security-relevant code (passwords, tokens, login, rate limiting) | git history |
+| Package provenance checked before adding a new dependency (`httpx2`, `limits`, `redis`) | PR history |
+| Test-first development for security-relevant code (passwords, tokens, login, rate limiting, triage, tenant isolation of the cache) | git history |
+| Access tests verified with deliberate mutations (removing a check makes its test fail) | PR history |
 | Branch ruleset for `main`: PR required, CI checks required, force pushes and deletion blocked (configured; not enforced on the free plan for private repos, so the workflow is followed manually) | GitHub settings |
 | GitHub access via SSH key with passphrase | developer setup |
 | Private repository; assessors invited individually | GitHub settings |
