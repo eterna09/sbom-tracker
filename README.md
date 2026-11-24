@@ -113,7 +113,7 @@ flowchart LR
 - **Data access:** SQLAlchemy sessions, one per request, injected via `Depends(get_session)`. Connection pooling with `pool_pre_ping`.
 - **Transactions:** SBOM upload and matching commit together or not at all; the OSV import commits one transaction per batch of 500 records.
 - **Indexes:** primary keys and unique constraints are indexed; a composite index serves the matching lookup (measured below). Further advanced indexes (partial, GIN) are planned.
-- **Backups:** the production database runs on Neon, which provides continuous point-in-time restore (6-hour history window on the free plan). A documented restore test is planned.
+- **Backups:** the production database runs on Neon, which provides continuous point-in-time restore (6-hour history window on the free plan). A **restore drill** was carried out on 24 November 2026: data deleted on purpose was recovered on a branch restored to the second before the deletion. See [docs/backup-restore.md](docs/backup-restore.md).
 
 ### Query optimisation: matching lookup
 

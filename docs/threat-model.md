@@ -117,7 +117,7 @@ flowchart LR
 | Cache outage takes the API down | Cache failures are logged and treated as misses (short timeouts), so requests fall back to the database | Implemented |
 | Huge uploads exhaust memory | Request size limits on SBOM upload | Partly (see SBOM upload above) |
 | Broken deployment takes the API down | Health check on `/health/ready`: Render only switches to a new version once the app and database are reachable | Implemented |
-| Data loss | Neon continuous point-in-time restore | Implemented (restore test planned) |
+| Data loss | Neon continuous point-in-time restore (6-hour window); restore drill carried out and documented | Implemented ([drill record](backup-restore.md)) |
 
 ### Elevation of privilege
 
