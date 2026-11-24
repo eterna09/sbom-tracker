@@ -92,6 +92,7 @@ flowchart LR
 |---|---|---|
 | User denies having triaged a finding as "not affected" | `triaged_by_id` and `updated_at` stored on every triage; justification required for "not affected" | Implemented |
 | Actions cannot be traced afterwards | Append-only audit log (logins, uploads, triage, API key creation and revocation), written in the same transaction as each action; no endpoint can change or delete entries; the database blocks deleting users, keys or organisations that appear in it | Implemented |
+| Attacks go unnoticed | Structured logs with request ids; rate-limited login attempts logged as warnings; external uptime monitoring with alerts | Implemented |
 
 ### Information disclosure
 
@@ -139,5 +140,6 @@ flowchart LR
 - **Unparsable versions are treated as not affected:** this avoids false alarms from malformed SBOM or OSV data, but a malformed version string can hide a real vulnerability (false negative). Mitigation planned: count and report skipped evaluations.
 - **Cache without password on the internal network:** the Render Key Value instance accepts unauthenticated connections from Render services in the same region; external access is disabled. Render's internal authentication could be enabled if stricter isolation is needed.
 - **Stale summaries after a sync:** after `rematch`, cached exposure summaries can be up to 5 minutes old (TTL), because a sync affects all organisations and is not invalidated key by key.
-- **Rate-limited login attempts are not in the audit log:** attempts rejected with 429 never reach the login logic; they appear only in the server's request log. Failed attempts below the limit are recorded.
+- **Rate-limited login attempts are in the server logs, not the audit log:** attempts rejected with 429 never reach the login logic; they are logged as warnings with the client IP. Failed attempts below the limit are in the audit log.
+- **Logs contain IP addresses:** IP addresses are personal data under the GDPR; they are logged only for security events and kept only as long as Render retains logs.
 - **Login events have no organisation:** they are stored, but not visible in any organisation's admin view; reading them requires database access.
