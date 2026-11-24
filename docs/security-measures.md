@@ -34,6 +34,7 @@ This list contains only measures that are **implemented and merged**. Planned me
 | Role ladder viewer < analyst < admin; endpoints declare a minimum role (403 if too low) | `app/auth/access.py`, `tests/test_access.py` |
 | Non-members get **404, not 403**, so outsiders cannot tell whether an organisation exists | `app/auth/access.py`, `tests/test_products.py` |
 | **IDOR protection:** objects are always looked up together with the organisation from the URL | `app/products/router.py`, `tests/test_products.py` |
+| Triage restricted to analysts and admins; status changes only along the defined state machine (forbidden transitions → 409, nothing changed); "not affected" requires a justification; the acting user is recorded | `app/findings/triage.py`, `app/findings/router.py`, `tests/test_triage.py` |
 
 
 ## API keys (CI pipelines)

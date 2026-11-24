@@ -31,7 +31,7 @@ Manufacturers upload a Software Bill of Materials (SBOM) for each product versio
 | UC4 | Sync vulnerability data from OSV and CISA KEV | **Implemented:** OSV import (PyPI) via `python -m app.vulnerabilities.import_osv`, creating, updating or skipping records by `modified_at`; CISA KEV marking via `python -m app.vulnerabilities.mark_kev`, mirroring the current catalogue exactly |
 | UC5 | Match components against affected version ranges, creating findings | **Implemented:** version rules per ecosystem (PEP 440 for PyPI, SemVer for npm); PyPI names normalised per PEP 503; one finding per version / component / vulnerability; re-matching never changes existing findings |
 | UC6 | Browse findings with filtering, sorting and pagination | **Implemented:** `GET /organizations/{id}/findings` |
-| UC7 | Triage findings through defined states (new → investigating → affected / not affected → fixed) | Planned (schema implemented) |
+| UC7 | Triage findings through defined states (new → investigating → affected / not affected → fixed) | **Implemented:** `POST /organizations/{id}/findings/{finding_id}/triage` (analyst and above); allowed transitions defined as a state machine; `not_affected` requires a justification; who triaged is recorded |
 | UC8 | Track CRA Article 14 deadlines (24 h / 72 h / 14 days) for exploited, affected findings | Planned (schema implemented) |
 | UC9 | Exposure summary per product (cached) | Planned |
 | UC10 | Audit log of security-relevant actions | Planned (schema implemented) |
@@ -41,6 +41,8 @@ Manufacturers upload a Software Bill of Materials (SBOM) for each product versio
 - After a vulnerability sync, re-match all versions with an SBOM: `python -m app.matching.rematch`
 
 **Findings list (UC6):** `GET /organizations/{id}/findings`, readable by every member. Known-exploited findings first, then newest; filters `status`, `product_id`, `known_exploited`; pagination with `limit` (1–100, default 50) and `offset`, plus `total` in the response.
+
+**Triage (UC7):** every verdict passes through `investigating`; reopening a decided finding returns it to `investigating`, never to `new`. Forbidden transitions return 409 and change nothing. `not_affected` without a justification returns 422 (as in VEX, a "not affected" claim needs a reason).
 
 ---
 
