@@ -35,3 +35,4 @@ packageurl-python==0.17.6
 packaging==26.3
 semver==3.1.2
 limits==5.8.0
+redis==8.2.0
