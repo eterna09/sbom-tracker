@@ -67,6 +67,7 @@ def add_finding(
     osv_id: str,
     known_exploited: bool = False,
     status: FindingStatus = FindingStatus.NEW,
+    severity: str = "high",
 ) -> Finding:
     component = Component(ecosystem="PyPI", name=f"pkg-{osv_id.lower()}", version="1.0.0")
     vulnerability = Vulnerability(
