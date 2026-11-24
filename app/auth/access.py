@@ -55,3 +55,4 @@ def require_role(minimum: Role) -> Callable[[Access], Access]:
 
 
 AdminAccess = Annotated[Access, Depends(require_role(Role.ADMIN))]
+AnalystAccess = Annotated[Access, Depends(require_role(Role.ANALYST))]
