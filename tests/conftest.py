@@ -48,12 +48,11 @@ def cache() -> InMemoryCache:
 
 
 @pytest.fixture
-def client(session: Session) -> Iterator[TestClient]:
+def client(session: Session, cache: InMemoryCache) -> Iterator[TestClient]:
     app.dependency_overrides[get_session] = lambda: session
     app.dependency_overrides[get_cache] = lambda: cache
     yield TestClient(app)
     app.dependency_overrides.clear()
-    cache: InMemoryCache
 
 
 @pytest.fixture
