@@ -4,7 +4,7 @@ import pytest
 import redis
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from app.cache import NullCache, RedisCache
+from app.cache import NullCache, RedisCache, cache_from_url
 
 
 class CacheTestSettings(BaseSettings):
@@ -69,3 +69,12 @@ def test_null_cache_never_returns_a_value() -> None:
     cache.set("exposure:1", "[]", ttl_seconds=60)
 
     assert cache.get("exposure:1") is None
+
+
+@pytest.mark.parametrize("url", [None, ""])
+def test_missing_or_empty_url_means_no_cache(url: str | None) -> None:
+    assert isinstance(cache_from_url(url), NullCache)
+
+
+def test_configured_url_gives_a_redis_cache() -> None:
+    assert isinstance(cache_from_url("redis://localhost:6379/0"), RedisCache)
