@@ -7,7 +7,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth.access import AdminAccess, CurrentAccess
+from app.cache import CacheDep
 from app.db import SessionDep
+from app.exposure.service import invalidate_exposure
 from app.models import Product, ProductVersion
 from app.products.queries import get_product_in_organization
 
@@ -52,11 +54,13 @@ def list_products(access: CurrentAccess, session: SessionDep) -> list[ProductOut
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, summary="Create a product")
-def create_product(payload: ProductCreate, access: AdminAccess, session: SessionDep) -> ProductOut:
+def create_product(
+    payload: ProductCreate, access: AdminAccess, session: SessionDep, cache: CacheDep
+) -> ProductOut:
     product = Product(organization_id=access.organization.id, name=payload.name)
     session.add(product)
-
     _commit_or_conflict(session, "A product with this name already exists")
+    invalidate_exposure(cache, access.organization.id)
     return ProductOut(id=product.id, name=product.name)
 
 
