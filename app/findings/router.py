@@ -12,12 +12,12 @@ from app.exposure.service import invalidate_exposure
 from app.findings.queries import (
     FindingFilters,
     FindingRow,
-    PageRequest,
     get_finding,
     list_findings,
 )
 from app.findings.triage import InvalidTransitionError, triage
 from app.models import FindingStatus
+from app.pagination import PageRequest
 
 router = APIRouter(prefix="/organizations/{organization_id}/findings", tags=["findings"])
 
