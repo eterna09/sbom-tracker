@@ -4,7 +4,18 @@ from sqlalchemy.orm import Session
 
 from app.auth.tokens import create_access_token
 from app.config import get_settings
-from app.models import Membership, Organization, Role, User
+from app.models import (
+    Component,
+    Finding,
+    FindingStatus,
+    Membership,
+    Organization,
+    Product,
+    ProductVersion,
+    Role,
+    User,
+    Vulnerability,
+)
 
 
 def bearer_header(user_id: int) -> dict[str, str]:
@@ -38,3 +49,37 @@ def osv_record(**overrides: object) -> dict:
     }
     record.update(overrides)
     return record
+
+
+def add_product_version(
+    session: Session, organization: Organization, product_name: str = "Pump Controller"
+) -> ProductVersion:
+    product = Product(organization_id=organization.id, name=product_name)
+    product_version = ProductVersion(product=product, version="1.0")
+    session.add(product_version)
+    session.flush()
+    return product_version
+
+
+def add_finding(
+    session: Session,
+    product_version: ProductVersion,
+    osv_id: str,
+    known_exploited: bool = False,
+    status: FindingStatus = FindingStatus.NEW,
+) -> Finding:
+    component = Component(ecosystem="PyPI", name=f"pkg-{osv_id.lower()}", version="1.0.0")
+    vulnerability = Vulnerability(
+        osv_id=osv_id, severity="high", is_known_exploited=known_exploited
+    )
+    session.add_all([component, vulnerability])
+    session.flush()
+    finding = Finding(
+        product_version_id=product_version.id,
+        component_id=component.id,
+        vulnerability_id=vulnerability.id,
+        status=status,
+    )
+    session.add(finding)
+    session.flush()
+    return finding
