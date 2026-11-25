@@ -16,7 +16,7 @@ Manufacturers upload a Software Bill of Materials (SBOM) for each product versio
 | Module | Where to look |
 |---|---|
 | Web Backend Technologies (SE_46) | [Architecture](#architecture), [Tech stack](#tech-stack), [Use cases](#use-cases), [Caching](#caching-exposure-summary), [Load tests](docs/load-tests.md), [Observability](#observability), [Deployment](#deployment), live API: https://sbom-tracker.onrender.com |
-| Databases | [Database](#database), [Query optimisation](#query-optimisation-matching-lookup), [Advanced SQL](#advanced-sql-exposure-summary), [Backup and restore drill](docs/backup-restore.md), [Data](#data), [ER model](docs/er-model.md) |
+| Databases | [Database](#database), [Query optimisation](#query-optimisation-matching-lookup), [Advanced SQL](#advanced-sql-exposure-summary), [Backup and restore drill](docs/backup-restore.md), [Data](#data), [ER model](docs/er-model.md), [Bulk import](#bulk-import-osv-vulnerabilities),  |
 | Cyber Security | [Security](#security), [Threat model](docs/threat-model.md), [Implemented measures](docs/security-measures.md) |
 
 ---
@@ -156,12 +156,25 @@ The exposure query runs on every request, but its result only changes when data 
 - The cache is behind a `Cache` protocol, so tests use an in-memory fake; the Redis implementation is tested against a real Valkey in CI
 - **Measured effect** (local load test, 1 process): 95th percentile of all requests 480 ms without cache, 290 ms with cache; with 4 processes and the shared cache, 63 ms. See [docs/load-tests.md](docs/load-tests.md).
 
+### Bulk import: OSV vulnerabilities
+
+The OSV import was round-trip-bound: about 4 statements per record, so 37 statements for 10 records and 200 for 50 (measured in a test). Each batch of 500 records now needs a constant number of statements: one lookup of the existing records, one `INSERT … ON CONFLICT (osv_id) DO UPDATE … RETURNING`, two deletes and two bulk inserts for aliases and affected ranges. Unchanged records cost only the lookup; the upsert never touches the known-exploited columns, so KEV marks survive updates.
+
+| 27,069 records | Before | After |
+|---|---|---|
+| Local, first import | 43.1 s | 13.1 s |
+| Local, re-run (all unchanged) | 26.3 s | 4.1 s |
+| Neon (Frankfurt), first import | 9 min 30 s | 1 min 32 s |
+| Neon, re-run (all unchanged) | – | 10.2 s |
+
+Local numbers were measured back to back in a fresh database; the Neon "after" was measured in a schema-only branch (the "before" is the original first import into the then-empty production database). A test for the batch version also exposed a bug in the old import: with the same vulnerability twice in one batch, the last one in the list won instead of the newest.
+
 ### Data
 
 | Data | Source | Amount (current) |
 |---|---|---|
 | Organisations, users, memberships | `python -m app.seed`: deterministic demo data, idempotent, one transaction | 1 organisation, 3 users (one per role) |
-| Vulnerabilities, aliases, affected ranges | OSV.dev PyPI export (`all.zip`), imported with `python -m app.vulnerabilities.import_osv` | 27,069 vulnerabilities, 36,158 aliases, 30,653 affected ranges (local import, Nov 2026). First import 29 s; idempotent re-run 19 s with every record unchanged |
+| Vulnerabilities, aliases, affected ranges | OSV.dev PyPI export (`all.zip`), imported with `python -m app.vulnerabilities.import_osv` | 27,069 vulnerabilities, 36,158 aliases, 30,653 affected ranges (local import, Nov 2026). First import 13 s locally, 1 min 32 s on Neon; re-run with every record unchanged 4 s locally, 10 s on Neon (see [Bulk import](#bulk-import-osv-vulnerabilities)) |
 | Components / SBOMs | Uploaded through the API like a CI pipeline would; SBOMs generated with Syft from real container images | Upload implemented (UC3); bulk import of real SBOMs planned |
 | Findings, report cases | Produced by the application's matching logic: after every SBOM upload, and with `python -m app.matching.rematch` after a sync | Findings implemented (UC5, UC6, UC7); report cases planned (UC8) |
 | Known exploited vulnerabilities | CISA KEV catalogue (JSON), matched through CVE aliases. ENISA also aggregates CISA KEV into the EUVD; the marking logic only needs "CVE → date added", so the EU KEV catalogue can be added as a second source | 1,790 KEV entries → 47 vulnerabilities marked (Nov 2026), in 1.2 s with three set-based SQL statements |
