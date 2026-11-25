@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.audit.queries import failed_logins_for
 from app.audit.service import AuditAction, record
 from app.auth.api_keys import generate_api_key, hash_api_key
 from app.auth.passwords import hash_password
@@ -182,3 +183,16 @@ def test_audit_log_is_paginated(
 
     assert page["total"] == 3
     assert len(page["items"]) == 2
+
+
+def test_failed_logins_can_be_found_by_email(session: Session) -> None:
+    record(session, AuditAction.LOGIN_FAILED, details={"email": "target@acme.example"})
+    record(session, AuditAction.LOGIN_FAILED, details={"email": "other@acme.example"})
+    record(session, AuditAction.LOGIN_SUCCEEDED, details={"email": "target@acme.example"})
+    record(session, AuditAction.LOGIN_FAILED, details={"email": "target@acme.example"})
+    session.flush()
+
+    entries = failed_logins_for(session, "Target@Acme.example")
+
+    assert [entry.details for entry in entries] == [{"email": "target@acme.example"}] * 2
+    assert entries[0].id > entries[1].id

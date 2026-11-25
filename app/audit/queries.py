@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.audit.service import AuditAction, attempted_email
 from app.models import AuditLog
 from app.pagination import PageRequest
 
@@ -23,3 +24,18 @@ def list_audit_entries(session: Session, organization_id: int, page: PageRequest
         .offset(page.offset)
     ).all()
     return AuditPage(entries=list(entries), total=total)
+
+
+def failed_logins_for(session: Session, email: str, limit: int = 100) -> list[AuditLog]:
+    """Failed login attempts against one account, newest first (for incident investigation)."""
+    return list(
+        session.scalars(
+            select(AuditLog)
+            .where(
+                AuditLog.action == AuditAction.LOGIN_FAILED.value,
+                AuditLog.details.contains({"email": attempted_email(email)}),
+            )
+            .order_by(AuditLog.occurred_at.desc(), AuditLog.id.desc())
+            .limit(limit)
+        )
+    )
