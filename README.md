@@ -16,7 +16,7 @@ Manufacturers upload a Software Bill of Materials (SBOM) for each product versio
 | Module | Where to look |
 |---|---|
 | Web Backend Technologies (SE_46) | [Architecture](#architecture), [Tech stack](#tech-stack), [Use cases](#use-cases), [Caching](#caching-exposure-summary), [Load tests](docs/load-tests.md), [Observability](#observability), [Deployment](#deployment), live API: https://sbom-tracker.onrender.com |
-| Databases | [Database](#database), [Query optimisation](#query-optimisation-matching-lookup), [Advanced SQL](#advanced-sql-exposure-summary), [Backup and restore drill](docs/backup-restore.md), [Data](#data), [ER model](docs/er-model.md), [Bulk import](#bulk-import-osv-vulnerabilities),  |
+| Databases | [Database](#database), [Query optimisation](#query-optimisation-matching-lookup), [Advanced SQL](#advanced-sql-exposure-summary), [Backup and restore drill](docs/backup-restore.md), [Data](#data), [ER model](docs/er-model.md), [Bulk import](#bulk-import-osv-vulnerabilities), [GIN index](#advanced-index-gin-on-jsonb)  |
 | Cyber Security | [Security](#security), [Threat model](docs/threat-model.md), [Implemented measures](docs/security-measures.md) |
 
 ---
@@ -114,7 +114,7 @@ flowchart LR
 - **Migrations:** Alembic. The initial migration was reviewed by hand and extended to drop enum types on downgrade. A data migration normalises existing PyPI package names (one set-based `UPDATE`). CI runs a full `upgrade → downgrade → upgrade` round trip on every pull request.
 - **Data access:** SQLAlchemy sessions, one per request, injected via `Depends(get_session)`. Connection pooling with `pool_pre_ping`.
 - **Transactions:** SBOM upload and matching commit together or not at all; audit entries commit together with the action they record; the OSV import commits one transaction per batch of 500 records.
-- **Indexes:** primary keys and unique constraints are indexed; a composite index serves the matching lookup (measured below); `(organization_id, occurred_at)` serves the audit log. Further advanced indexes (partial, GIN) are planned.
+- **Indexes:** primary keys and unique constraints are indexed; a composite B-tree index serves the matching lookup and `(organization_id, occurred_at)` the audit log; a **GIN index** (`jsonb_path_ops`) on the audit log's JSONB details serves containment queries (both measured below).
 - **Semi-structured data:** audit entry details are stored as JSONB.
 - **Backups:** the production database runs on Neon, which provides continuous point-in-time restore (6-hour history window on the free plan). A **restore drill** was carried out on 24 November 2026: data deleted on purpose was recovered on a branch restored to the second before the deletion. See [docs/backup-restore.md](docs/backup-restore.md).
 
@@ -168,6 +168,19 @@ The OSV import was round-trip-bound: about 4 statements per record, so 37 statem
 | Neon, re-run (all unchanged) | – | 10.2 s |
 
 Local numbers were measured back to back in a fresh database; the Neon "after" was measured in a schema-only branch (the "before" is the original first import into the then-empty production database). A test for the batch version also exposed a bug in the old import: with the same vulnerability twice in one batch, the last one in the list won instead of the newest.
+
+### Advanced index: GIN on JSONB
+
+Failed logins store the attempted email inside the JSONB `details` column. Investigating attacks on one account (`python -m app.audit.investigate <email>`) therefore searches inside JSON documents with the containment operator `@>`, which a B-tree index cannot serve. A GIN index with the `jsonb_path_ops` operator class does: it indexes the keys and values inside each document, supports only `@>`, and is smaller and faster than the default `jsonb_ops` for that operator.
+
+`EXPLAIN ANALYZE`, failed logins for one email among 300,000 generated entries for 5,000 emails (single run, local Docker, PostgreSQL 17):
+
+| | Plan | Rows removed by filter | Execution time |
+|---|---|---|---|
+| Without index | Parallel Seq Scan (2 workers) | ~300,000 | 62.2 ms |
+| With GIN index | Bitmap Index Scan → Bitmap Heap Scan | 0 | 0.23 ms |
+
+The index takes 2.0 MB next to a 31 MB table and was built in about one second. Trade-off: every audit write also updates the index.
 
 ### Data
 

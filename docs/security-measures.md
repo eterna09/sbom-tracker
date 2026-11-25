@@ -84,6 +84,7 @@ This list contains only measures that are **implemented and merged**. Planned me
 | Append-only: no endpoint updates or deletes entries; referenced users, keys and organisations cannot be deleted | `app/audit/router.py`, `app/models/audit.py` |
 | No secrets in the log: passwords, tokens and API keys are never recorded (tested); failed logins store only the lowercased email, truncated to 320 characters | `app/audit/service.py`, `tests/test_audit.py` |
 | Readable only by the organisation's admins, newest first, paginated; served by an index on `(organization_id, occurred_at)` | `app/audit/router.py`, `migrations/` |
+| Investigation of attacks on one account: `python -m app.audit.investigate <email>` lists failed logins, newest first, served by a GIN index on the JSONB details | `app/audit/queries.py`, `app/audit/investigate.py`, `tests/test_audit.py` |
 
 ## Logging and monitoring
 
