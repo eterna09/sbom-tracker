@@ -12,6 +12,12 @@ class AuditLog(Base):
     __tablename__ = "audit_log"
     __table_args__ = (
         Index("ix_audit_log_organization_id_occurred_at", "organization_id", "occurred_at"),
+        Index(
+            "ix_audit_log_details",
+            "details",
+            postgresql_using="gin",
+            postgresql_ops={"details": "jsonb_path_ops"},
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
