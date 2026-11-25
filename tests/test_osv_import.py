@@ -1,9 +1,11 @@
 import json
 import zipfile
 from collections import Counter
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
-from sqlalchemy import func, select
+from sqlalchemy import event, func, select
 from sqlalchemy.orm import Session
 
 from app.models import Vulnerability, VulnerabilityAlias
@@ -13,7 +15,7 @@ from app.vulnerabilities.importer import (
     import_records,
     read_osv_zip,
 )
-from app.vulnerabilities.osv import parse_osv_record
+from app.vulnerabilities.osv import OsvRecord, parse_osv_record
 from tests.helpers import osv_record
 
 
@@ -79,3 +81,74 @@ def test_records_are_read_from_an_osv_zip_export(session: Session, tmp_path: Pat
     outcomes = import_records(session, read_osv_zip(export))
 
     assert outcomes == Counter({ImportOutcome.CREATED: 2})
+
+
+@contextmanager
+def counting_statements(session: Session) -> Iterator[list[str]]:
+    connection = session.connection()
+    statements: list[str] = []
+
+    def record_statement(conn, cursor, statement, parameters, context, executemany) -> None:
+        statements.append(statement)
+
+    event.listen(connection, "before_cursor_execute", record_statement)
+    try:
+        yield statements
+    finally:
+        event.remove(connection, "before_cursor_execute", record_statement)
+
+
+def _records(prefix: str, count: int) -> list[OsvRecord]:
+    return [parse_osv_record(osv_record(id=f"{prefix}-{number}")) for number in range(count)]
+
+
+def test_a_batch_needs_the_same_number_of_statements_whatever_its_size(
+    session: Session,
+) -> None:
+    with counting_statements(session) as small_batch:
+        import_records(session, _records("SMALL", 10))
+    with counting_statements(session) as large_batch:
+        import_records(session, _records("LARGE", 50))
+
+    assert len(small_batch) == len(large_batch)
+
+
+def test_a_batch_reports_created_updated_and_unchanged(session: Session) -> None:
+    import_records(
+        session,
+        [parse_osv_record(osv_record(id="GHSA-KEEP")), parse_osv_record(osv_record(id="GHSA-OLD"))],
+    )
+
+    outcomes = import_records(
+        session,
+        [
+            parse_osv_record(osv_record(id="GHSA-KEEP")),
+            parse_osv_record(osv_record(id="GHSA-OLD", modified="2025-01-01T00:00:00Z")),
+            parse_osv_record(osv_record(id="GHSA-NEW")),
+        ],
+    )
+
+    assert outcomes == Counter(
+        {ImportOutcome.UNCHANGED: 1, ImportOutcome.UPDATED: 1, ImportOutcome.CREATED: 1}
+    )
+
+
+def test_an_update_keeps_the_known_exploited_mark(session: Session) -> None:
+    import_record(session, parse_osv_record(osv_record()))
+    vulnerability = stored_vulnerability(session)
+    vulnerability.is_known_exploited = True
+    session.flush()
+
+    import_record(session, parse_osv_record(osv_record(modified="2025-01-01T00:00:00Z")))
+
+    assert stored_vulnerability(session).is_known_exploited is True
+
+
+def test_the_newest_of_duplicate_records_in_one_batch_wins(session: Session) -> None:
+    older = parse_osv_record(osv_record(summary="Older summary"))
+    newer = parse_osv_record(osv_record(modified="2025-01-01T00:00:00Z", summary="Newer summary"))
+
+    import_records(session, [newer, older])
+
+    assert session.scalar(select(func.count()).select_from(Vulnerability)) == 1
+    assert stored_vulnerability(session).summary == "Newer summary"
